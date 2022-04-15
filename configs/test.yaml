@@ -1,0 +1,20 @@
+MODEL:
+  BACKBONE: 'cspresnet50'
+  LOSS: 'arcface'
+  EMBEDDING_DIM: 512
+  NUM_CLASS: 1000
+
+DATASET:
+  TRAIN: '/dataset/dataset/face_test'
+  VAL: ''
+  TEST: ''
+  IMG_SIZE: 112
+
+SOLVER:
+  BATCH_SIZE: 128
+  BASE_LR: 0.1
+  WARMUP_EPOCH: 2
+  MOMENTUM: 0.9
+  WEIGHT_DECAY: 0.0001
+  LR_SCHEDULER_NAME: 'cosine'
+  FP16: True

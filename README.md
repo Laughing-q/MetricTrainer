@@ -3,6 +3,13 @@
 - This repo is experimental.
 
 ## TODO
+- [ ] optimizer
+- [ ] scheduler
+- [ ] logger
+- [ ] eval
+- [ ] DDP
+- [ ] amp training
+- [ ] ema
 
 
 ## Quick Start
