@@ -1,17 +1,18 @@
 MODEL:
   BACKBONE: 'cspresnet50'
-  LOSS: 'arcface'
+  LOSS: 'circleloss'
   EMBEDDING_DIM: 512
-  NUM_CLASS: 1000
+  NUM_CLASS: 360232
 
 DATASET:
-  TRAIN: '/dataset/dataset/face_test'
+  TYPE: 'folder'  # 'folder'
+  TRAIN: '/dataset/dataset/face_test/'
   VAL: ''
   TEST: ''
   IMG_SIZE: 112
 
 SOLVER:
-  BATCH_SIZE: 128
+  BATCH_SIZE: 32
   BASE_LR: 0.1
   WARMUP_EPOCH: 2
   MOMENTUM: 0.9

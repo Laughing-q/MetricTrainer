@@ -2,8 +2,8 @@ from timm import create_model
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch import optim
-from pytorch_metric_learning import losses, reducers
-from ..data import FaceTrainData
+from pytorch_metric_learning import losses, reducers, samplers
+from ..data.dataset import FaceTrainData, Glint360Loader
 
 
 def build_metric(name, embedding_dim, num_class):
@@ -14,7 +14,15 @@ def build_metric(name, embedding_dim, num_class):
         )
     elif name == "circleloss":
         loss_func = losses.CircleLoss(m=0.25, gamma=256, reducer=reducer)
+    elif name == "tripletloss":
+        loss_func = losses.TripletMarginLoss(reducer=reducer)
     return loss_func
+
+def build_dataset(data, *args, **kwargs):
+    if data == 'glint360k':
+        return Glint360Loader(*args, **kwargs)
+    elif data == 'folder':
+        return FaceTrainData(*args, **kwargs)
 
 
 class Trainer:
@@ -29,13 +37,16 @@ class Trainer:
             cfg.MODEL.LOSS, cfg.MODEL.EMBEDDING_DIM, cfg.MODEL.NUM_CLASS
         )
 
-        self.dataset = FaceTrainData(
-            img_root=cfg.DATASET.TRAIN, img_size=cfg.DATASET.IMG_SIZE
+        # TODO
+        self.dataset = build_dataset(
+            cfg.DATASET.TYPE, cfg.DATASET.TRAIN, 'labels.npy', cfg.DATASET.IMG_SIZE
         )
+        # sampler = samplers.MPerClassSampler(self.dataset.labels, m=4, batch_size=cfg.SOLVER.BATCH_SIZE)
         self.train_loader = DataLoader(
             dataset=self.dataset,
             batch_size=cfg.SOLVER.BATCH_SIZE,
-            shuffle=True,
+            # sampler=sampler,
+            # shuffle=True,
         )
         self.optimizer = optim.SGD(
             [

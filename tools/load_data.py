@@ -1,10 +1,14 @@
 import mxnet as mx
+import numbers
 import os
+import os.path as osp
 import numpy as np
 import cv2
 import pickle
+from tqdm import tqdm
 from torchvision import transforms
 from mxnet import ndarray as nd
+from lqcv.utils.timer import Timer
 
 
 class Glint360Loader:
@@ -29,18 +33,26 @@ class Glint360Loader:
         else:
             self.imgidx = np.array(list(self.imgrec.keys))
 
+        self.timer = Timer(start=False, round=2, unit="ms")
+
     def __iter__(self):
         self.count = 0
         return self
 
     def __next__(self):
+        self.timer.start(reset=True)
         idx = self.imgidx[self.count]
         s = self.imgrec.read_idx(idx)
         header, img = mx.recordio.unpack(s)
         label = header.label
+        if not isinstance(label, numbers.Number):
+            label = label[0]
         sample = mx.image.imdecode(img).asnumpy()
         self.count += 1
-        return sample, label
+        return sample, label, self.timer.since_start()
+
+    def __len__(self):
+        return len(self.imgidx)
 
 
 def load_bin(path, image_size):
@@ -65,15 +77,24 @@ def load_bin(path, image_size):
 
 
 if __name__ == "__main__":
-    save_root = '/dataset/dataset/glint360k/'
-    test =Glint360Loader(root_dir='/dataset/dataset/glint360k/glint360k')
-    for img, label in test:
-        print(label)
-        cv2.imshow('p', img[:, :, ::-1])
-        # cv2.imwrite('sample.jpg', img)
-        if cv2.waitKey(0) == ord('q'):
-            break
-        print(label)
+    save_root = "/data/glint360k"
+    test = Glint360Loader(root_dir="/dataset/dataset/glint360k/glint360k")
+    timer = Timer(start=False, round=2, unit="ms")
+    pbar = tqdm(test, total=len(test))
+    for i, (img, label, tr) in enumerate(pbar):
+        pbar.desc = ''
+        pbar.desc += f'|read:{tr}|'
+        save_dir = osp.join(save_root, str(int(label)))
+        timer.start(reset=True)
+        os.makedirs(save_dir, exist_ok=True)
+        pbar.desc += f'makedirs:{timer.since_last_check()}|'
+        cv2.imwrite(osp.join(save_dir, f'{i}.jpg'), img[:, :, ::-1])
+        pbar.desc += f'write:{timer.since_last_check()}|'
+        # cv2.imshow("p", img[:, :, ::-1])
+        # if cv2.waitKey(0) == ord("q"):
+            # break
+        # print(label)
+# 5658987
 
     # data_list, issame_list = load_bin(
     #     path="/dataset/dataset/glint360k/glint360k/lfw.bin", image_size=(112, 112)
