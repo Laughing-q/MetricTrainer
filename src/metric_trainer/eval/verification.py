@@ -25,13 +25,13 @@
 
 
 import datetime
-import os
 import pickle
 
 import mxnet as mx
 import numpy as np
 import sklearn
 import torch
+from loguru import logger
 from mxnet import ndarray as nd
 from scipy import interpolate
 from sklearn.decomposition import PCA
@@ -225,7 +225,7 @@ def load_bin(path, image_size):
 
 @torch.no_grad()
 def test(data_set, backbone, batch_size, nfolds=10):
-    print('testing verification..')
+    logger.info('testing verification..')
     data_list = data_set[0]
     issame_list = data_set[1]
     embeddings_list = []
@@ -268,8 +268,8 @@ def test(data_set, backbone, batch_size, nfolds=10):
     std1 = 0.0
     embeddings = embeddings_list[0] + embeddings_list[1]
     embeddings = sklearn.preprocessing.normalize(embeddings)
-    print(embeddings.shape)
-    print('infer time', time_consumed)
+    # print(embeddings.shape)
+    logger.info('infer time', time_consumed)
     _, _, accuracy, val, val_std, far = evaluate(embeddings, issame_list, nrof_folds=nfolds)
     acc2, std2 = np.mean(accuracy), np.std(accuracy)
     return acc1, std1, acc2, std2, _xnorm, embeddings_list

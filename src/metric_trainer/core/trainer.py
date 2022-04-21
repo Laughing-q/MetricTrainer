@@ -78,7 +78,7 @@ class Trainer:
         model = create_model(
             model_name=self.backbone,
             num_classes=self.embedding_dim,
-            pretrained=False,
+            pretrained=True,
             global_pool="avg",
         )
         if self.is_distributed:
@@ -94,7 +94,7 @@ class Trainer:
         self.model.train().cuda()
 
         self.train_loader = get_dataloader(
-            self.dataset, self.is_distributed, self.batch_size
+            self.dataset, self.is_distributed, self.batch_size, self.cfg.NUM_WORKERS
         )
         self.max_iter = len(self.train_loader)
 
@@ -191,17 +191,20 @@ class Trainer:
                     self.max_iter,
                     self.loss_am,
                     self.epoch,
+                    self.max_epoch,
                     self.fp16,
                     self.lr_scheduler.get_last_lr()[0],
                     self.scaler,
                 )
-                # if (
-                #     self.global_iter() % self.cfg.SOLVER.VAL_STEP == 0
-                #     and self.global_iter() > 50
-                # ):
-        with torch.no_grad():
-            self.callback_verification(self.global_iter(), self.model)
-        self.save_ckpt()
+                if (
+                    self.global_iter() % self.cfg.SOLVER.VAL_STEP == 0
+                    and self.global_iter() > 50
+                ):
+                    self.callback_verification(self.global_iter(), self.model)
+                    self.save_ckpt()
+        # with torch.no_grad():
+        #     self.callback_verification(self.global_iter(), self.model)
+        # self.save_ckpt()
 
     def global_iter(self):
         return self.iter + self.max_iter * self.epoch
@@ -209,15 +212,20 @@ class Trainer:
     def save_ckpt(self):
         path_pfc = osp.join(self.cfg.OUTPUT, "softmax_fc_gpu_{}.pt".format(self.rank))
         torch.save(self.loss_func.state_dict(), path_pfc)
-        ckpt = (
+        model = (
             self.model.module
             if type(self.model)
             in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
             else self.model
         )
+        ckpt = {
+            "epoch": self.epoch,
+            "model": model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+        }
         if self.rank == 0:
             path_module = osp.join(self.cfg.OUTPUT, "model.pt")
-            torch.save(ckpt.state_dict(), path_module)
+            torch.save(ckpt, path_module)
 
     def eval(self):
         pass

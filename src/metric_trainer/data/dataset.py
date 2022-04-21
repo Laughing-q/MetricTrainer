@@ -15,14 +15,17 @@ from torch.utils.data.sampler import RandomSampler
 from torch.utils.data import DataLoader
 
 
-def get_dataloader(dataset, is_dist, batch_size):
+def get_dataloader(dataset, is_dist, batch_size, workers):
     sampler = (
         distributed.DistributedSampler(dataset, shuffle=True)
         if is_dist
         else RandomSampler(dataset)
     )
+    nw = min(
+        [os.cpu_count(), batch_size if batch_size > 1 else 0, workers]
+    )  # number of workers
     data_loader = DataLoader(
-        dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=6
+        dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=nw
     )
     return data_loader
 

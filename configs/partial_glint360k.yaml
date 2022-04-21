@@ -9,7 +9,7 @@ DATASET:
   TYPE: 'glint360k'  # 'folder'
   TRAIN: '/dataset/dataset/glint360k/glint360k'
   VAL: '/dataset/dataset/glint360k/glint360k'
-  VAL_TARGETS: ['lfw']
+  VAL_TARGETS: ['lfw', 'cfp_fp', "agedb_30"]
   TEST: ''
   IMG_SIZE: 112
   NUM_IMAGES: 17091657
@@ -27,3 +27,4 @@ SOLVER:
   LOGGER_STEP: 10
   VAL_STEP: 100
 OUTPUT: 'runs'
+NUM_WORKERS: 8

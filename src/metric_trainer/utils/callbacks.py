@@ -84,6 +84,7 @@ class CallBackLogging(object):
         max_iter: int,
         loss: AverageMeter,
         epoch: int,
+        max_epoch: int,
         fp16: bool,
         learning_rate: float,
         grad_scaler: torch.cuda.amp.GradScaler,
@@ -102,33 +103,27 @@ class CallBackLogging(object):
                 time_total = time_now / ((current_iter + 1) / self.total_step)
                 time_for_end = time_total - time_now
                 if fp16:
-                    msg = (
-                        "Speed %.2f samples/sec   Loss %.4f   LearningRate %.4f   Epoch: %d   Step: %d/%d   "
-                        "Fp16 Grad Scale: %2.f   Required: %1.f hours"
-                        % (
-                            speed_total,
-                            loss.avg,
-                            learning_rate,
-                            epoch,
-                            current_iter,
-                            max_iter,
-                            grad_scaler.get_scale(),
-                            time_for_end,
-                        )
+                    msg = "Epoch: %d/%d | Step: %d/%d | loss %.4f | lr %.4f | Fp16 Grad Scale: %2.f | speed %.2f samples/sec | required: %1.f hours" % (
+                        epoch,
+                        max_epoch,
+                        current_iter,
+                        max_iter,
+                        loss.avg,
+                        learning_rate,
+                        grad_scaler.get_scale(),
+                        speed_total,
+                        time_for_end,
                     )
                 else:
-                    msg = (
-                        "Speed %.2f samples/sec   Loss %.4f   LearningRate %.4f   Epoch: %d   Step: %d/%d   "
-                        "Required: %1.f hours"
-                        % (
-                            speed_total,
-                            loss.avg,
-                            learning_rate,
-                            epoch,
-                            current_iter,
-                            max_iter,
-                            time_for_end,
-                        )
+                    msg = "Epoch: %d/%d | Step: %d/%d | loss %.4f | lr %.4f | speed %.2f samples/sec | required: %1.f hours" % (
+                        epoch,
+                        max_epoch,
+                        current_iter,
+                        max_iter,
+                        loss.avg,
+                        learning_rate,
+                        speed_total,
+                        time_for_end,
                     )
                 logger.info(msg)
                 self.tic = time.time()
