@@ -196,15 +196,15 @@ class Trainer:
                     self.lr_scheduler.get_last_lr()[0],
                     self.scaler,
                 )
-                if (
-                    self.global_iter() % self.cfg.SOLVER.VAL_STEP == 0
-                    and self.global_iter() > 50
-                ):
-                    self.callback_verification(self.global_iter(), self.model)
-                    self.save_ckpt()
-        # with torch.no_grad():
-        #     self.callback_verification(self.global_iter(), self.model)
-        # self.save_ckpt()
+                # if (
+                #     self.global_iter() % self.cfg.SOLVER.VAL_STEP == 0
+                #     and self.global_iter() > 50
+                # ):
+                #     self.callback_verification(self.global_iter(), self.model)
+                #     self.save_ckpt()
+        with torch.no_grad():
+            self.callback_verification(self.global_iter(), self.model)
+        self.save_ckpt()
 
     def global_iter(self):
         return self.iter + self.max_iter * self.epoch
