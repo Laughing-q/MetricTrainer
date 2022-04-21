@@ -212,7 +212,8 @@ class PartialFC(torch.nn.Module):
             logits = logits.float()
         logits = logits.clamp(-1, 1)
 
-        logits = self.margin_softmax(logits, labels)
+        
+        logits = self.margin_softmax(logits, labels.squeeze())
         loss = self.dist_cross_entropy(logits, labels)
         return loss
 

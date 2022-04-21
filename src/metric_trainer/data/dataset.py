@@ -10,6 +10,21 @@ from pathlib import Path
 import albumentations as A
 import cv2
 from tqdm import tqdm
+from torch.utils.data import distributed
+from torch.utils.data.sampler import RandomSampler
+from torch.utils.data import DataLoader
+
+
+def get_dataloader(dataset, is_dist, batch_size):
+    sampler = (
+        distributed.DistributedSampler(dataset, shuffle=True)
+        if is_dist
+        else RandomSampler(dataset)
+    )
+    data_loader = DataLoader(
+        dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=6
+    )
+    return data_loader
 
 
 class FaceTrainData(Dataset):
@@ -99,7 +114,7 @@ class FaceValData(Dataset):
 class Glint360Loader(Dataset):
     """Read training data from glint360k"""
 
-    def __init__(self, root_dir, labels, img_size=112, rgb=True):
+    def __init__(self, root_dir, img_size=112, rgb=True):
         self.img_size = img_size
         self.rgb = rgb
         self.transform = A.Compose(
@@ -128,7 +143,7 @@ class Glint360Loader(Dataset):
         else:
             self.imgidx = np.array(list(self.imgrec.keys))
 
-        self.labels = np.load(labels)
+        # self.labels = np.load(labels)
         # save labels
         # self.labels = []
         # for idx in tqdm(self.imgidx, total=len(self.imgidx)):
@@ -159,7 +174,6 @@ class Glint360Loader(Dataset):
         if not isinstance(label, numbers.Number):
             label = label[0]
         return label
-
 
     def __len__(self):
         return len(self.imgidx)

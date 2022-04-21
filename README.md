@@ -5,11 +5,13 @@
 ## TODO
 - [ ] optimizer
 - [ ] scheduler
-- [ ] logger
-- [ ] eval
-- [ ] DDP
-- [ ] amp training
+- [X] logger
+- [X] eval
+- [X] DDP
+- [X] amp training
 - [ ] ema
+- [ ] dataloader
+- [ ] resume
 
 
 ## Quick Start

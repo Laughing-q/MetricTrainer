@@ -3,3 +3,5 @@ pair.txt
 
 *.egg-info
 *.npy
+runs/
+*.yaml
