@@ -5,3 +5,5 @@ pair.txt
 *.npy
 runs/
 *.yaml
+*.pth
+*.pt

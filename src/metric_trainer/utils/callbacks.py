@@ -12,7 +12,7 @@ from torch import distributed
 
 class CallBackVerification(object):
     def __init__(
-        self, val_targets, rec_prefix, summary_writer=None, image_size=(112, 112)
+        self, val_targets, rec_prefix, image_size=(112, 112)
     ):
         self.rank: int = distributed.get_rank()
         self.highest_acc: float = 0.0
@@ -23,8 +23,6 @@ class CallBackVerification(object):
             self.init_dataset(
                 val_targets=val_targets, data_dir=rec_prefix, image_size=image_size
             )
-
-        self.summary_writer = summary_writer
 
     def ver_test(self, backbone: torch.nn.Module, global_step: int):
         results = []
@@ -39,9 +37,6 @@ class CallBackVerification(object):
                 "[%s][%d]Accuracy-Flip: %1.5f+-%1.5f"
                 % (self.ver_name_list[i], global_step, acc2, std2)
             )
-
-            # self.summary_writer: SummaryWriter
-            # self.summary_writer.add_scalar(tag=self.ver_name_list[i], scalar_value=acc2, global_step=global_step, )
 
             if acc2 > self.highest_acc_list[i]:
                 self.highest_acc_list[i] = acc2

@@ -23,10 +23,18 @@ def get_dataloader(dataset, is_dist, batch_size, workers):
         else RandomSampler(dataset)
     )
     nw = min(
-        [os.cpu_count() // get_world_size(), batch_size if batch_size > 1 else 0, workers]
+        [
+            os.cpu_count() // get_world_size(),
+            batch_size if batch_size > 1 else 0,
+            workers,
+        ]
     )  # number of workers
     data_loader = DataLoader(
-        dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=nw
+        dataset=dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=nw,
+        drop_last=True,
     )
     return data_loader
 
