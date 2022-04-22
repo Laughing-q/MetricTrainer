@@ -7,43 +7,14 @@ import time
 import torch.nn as nn
 import os.path as osp
 import os
-from pytorch_metric_learning import losses, reducers, samplers
 from ..data.dataset import FaceTrainData, Glint360Loader, get_dataloader
 from torch.nn.parallel import DistributedDataParallel as DDP
-from ..models.partial_fc import PartialFC
 from ..utils.lr_scheduler import PolyScheduler
 from ..utils.dist import get_world_size, get_rank
 from ..utils.callbacks import CallBackVerification, CallBackLogging
 from ..utils.metric import AverageMeter
-from ..models.losses import CombinedMarginLoss
+from ..models.losses import build_metric
 from ..utils.logger import setup_logger
-
-
-def build_metric(name, embedding_dim, num_class, sample_rate, fp16):
-    reducer = reducers.MeanReducer()
-    if name == "arcface":
-        loss_func = losses.ArcFaceLoss(
-            num_classes=num_class, embedding_size=embedding_dim, reducer=reducer
-        )
-    elif name == "circleloss":
-        loss_func = losses.CircleLoss(m=0.25, gamma=256, reducer=reducer)
-    elif name == "tripletloss":
-        loss_func = losses.TripletMarginLoss(reducer=reducer)
-    elif name == "partial_fc":
-        margin_loss = CombinedMarginLoss(
-            64,
-            1.0,
-            0.0,
-            0.4,
-        )
-        loss_func = PartialFC(
-            margin_loss,
-            embedding_dim,
-            num_class,
-            sample_rate,
-            fp16,
-        )
-    return loss_func
 
 
 def build_dataset(data, *args, **kwargs):
@@ -202,12 +173,12 @@ class Trainer:
                     self.lr_scheduler.get_last_lr()[0],
                     self.scaler,
                 )
-                # if (
-                #     self.global_iter() % self.cfg.SOLVER.VAL_STEP == 0
-                #     and self.global_iter() > 50
-                # ):
-                #     self.callback_verification(self.global_iter(), self.model)
-                #     self.save_ckpt()
+                if (
+                    self.global_iter() % self.cfg.SOLVER.VAL_STEP == 0
+                    and self.global_iter() > 50
+                ):
+                    self.callback_verification(self.global_iter(), self.model)
+                    # self.save_ckpt()
         with torch.no_grad():
             self.callback_verification(self.global_iter(), self.model)
         self.save_ckpt()

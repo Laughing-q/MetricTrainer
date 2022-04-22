@@ -1,9 +1,9 @@
-from metric_trainer.models.model import Backbone
 import torch
 import os
 from typing import List
 from loguru import logger
 from metric_trainer.eval.verification import test, load_bin
+from timm import create_model
 
 
 class CallBackVerification(object):
@@ -22,12 +22,9 @@ class CallBackVerification(object):
             acc1, std1, acc2, std2, xnorm, embeddings_list = test(
                 self.ver_list[i], backbone, 10, 10
             )
+            logger.info("[%s]XNorm: %f" % (self.ver_name_list[i], xnorm))
             logger.info(
-                "[%s]XNorm: %f" % (self.ver_name_list[i], xnorm)
-            )
-            logger.info(
-                "[%s]Accuracy-Flip: %1.5f+-%1.5f"
-                % (self.ver_name_list[i], acc2, std2)
+                "[%s]Accuracy-Flip: %1.5f+-%1.5f" % (self.ver_name_list[i], acc2, std2)
             )
 
             if acc2 > self.highest_acc_list[i]:
@@ -51,21 +48,15 @@ class CallBackVerification(object):
         self.ver_test(backbone)
 
 
-def load_state(model, weight_path):
-    state_dict = torch.load(weight_path)
-    from collections import OrderedDict
-
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = k[7:]
-        new_state_dict[name] = v
-    model.load_state_dict(new_state_dict)
-    return model
-
-
 if __name__ == "__main__":
-    model = Backbone(num_layers=50, drop_ratio=0.5, mode="ir_se")
-    model = load_state(model, weight_path="weights/model_14w.pth")
+    model = create_model(
+        model_name='cspresnet50',
+        num_classes=512,
+        pretrained=False,
+        global_pool="avg",
+    )
+    ckpt = torch.load('runs/model.pt')
+    model.load_state_dict(ckpt['model'])
     model.cuda()
     model.eval()
 

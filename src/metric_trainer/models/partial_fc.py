@@ -28,7 +28,9 @@ class PartialFC(torch.nn.Module):
     >>>     loss.backward()
     >>>     optimizer.step()
     """
-    _version = 1 
+
+    _version = 1
+
     def __init__(
         self,
         margin_loss: Callable,
@@ -77,18 +79,19 @@ class PartialFC(torch.nn.Module):
 
         if self.sample_rate < 1:
             # 初始化权重，self.sample中只会取对应index的weight进行计算
-            self.register_buffer("weight",
-                tensor=torch.normal(0, 0.01, (self.num_local, embedding_size)))
-            self.register_buffer("weight_mom",
-                tensor=torch.zeros_like(self.weight))
-            self.register_parameter("weight_activated",
-                param=torch.nn.Parameter(torch.empty(0, 0)))
-            self.register_buffer("weight_activated_mom",
-                tensor=torch.empty(0, 0))
-            self.register_buffer("weight_index",
-                tensor=torch.empty(0, 0))
+            self.register_buffer(
+                "weight", tensor=torch.normal(0, 0.01, (self.num_local, embedding_size))
+            )
+            self.register_buffer("weight_mom", tensor=torch.zeros_like(self.weight))
+            self.register_parameter(
+                "weight_activated", param=torch.nn.Parameter(torch.empty(0, 0))
+            )
+            self.register_buffer("weight_activated_mom", tensor=torch.empty(0, 0))
+            self.register_buffer("weight_index", tensor=torch.empty(0, 0))
         else:
-            self.weight_activated = torch.nn.Parameter(torch.normal(0, 0.01, (self.num_local, embedding_size)))
+            self.weight_activated = torch.nn.Parameter(
+                torch.normal(0, 0.01, (self.num_local, embedding_size))
+            )
 
         # margin_loss
         if isinstance(margin_loss, Callable):
@@ -97,10 +100,12 @@ class PartialFC(torch.nn.Module):
             raise
 
     @torch.no_grad()
-    def sample(self, 
-        labels: torch.Tensor, 
-        index_positive: torch.Tensor, 
-        optimizer: torch.optim.Optimizer):
+    def sample(
+        self,
+        labels: torch.Tensor,
+        index_positive: torch.Tensor,
+        optimizer: torch.optim.Optimizer,
+    ):
         """
         This functions will change the value of labels
 
@@ -124,10 +129,10 @@ class PartialFC(torch.nn.Module):
         self.weight_index = index
 
         labels[index_positive] = torch.searchsorted(index, labels[index_positive])
-        
+
         self.weight_activated = torch.nn.Parameter(self.weight[self.weight_index])
         self.weight_activated_mom = self.weight_mom[self.weight_index]
-        
+
         if isinstance(optimizer, torch.optim.SGD):
             # TODO the params of partial fc must be last in the params list
             optimizer.state.pop(optimizer.param_groups[-1]["params"][0], None)
@@ -140,8 +145,7 @@ class PartialFC(torch.nn.Module):
 
     @torch.no_grad()
     def update(self):
-        """ partial weight to global
-        """
+        """partial weight to global"""
         if self.init_weight_update:
             self.init_weight_update = False
             return
@@ -149,7 +153,6 @@ class PartialFC(torch.nn.Module):
         if self.sample_rate < 1:
             self.weight[self.weight_index] = self.weight_activated
             self.weight_mom[self.weight_index] = self.weight_activated_mom
-
 
     def forward(
         self,
@@ -177,9 +180,11 @@ class PartialFC(torch.nn.Module):
         batch_size = local_embeddings.size(0)
         if self.last_batch_size == 0:
             self.last_batch_size = batch_size
-        assert self.last_batch_size == batch_size, (
-            "last batch size do not equal current batch size: {} vs {}".format(
-            self.last_batch_size, batch_size))
+        assert (
+            self.last_batch_size == batch_size
+        ), "last batch size do not equal current batch size: {} vs {}".format(
+            self.last_batch_size, batch_size
+        )
 
         _gather_embeddings = [
             torch.zeros((batch_size, self.embedding_size)).cuda()
@@ -212,13 +217,16 @@ class PartialFC(torch.nn.Module):
             logits = logits.float()
         logits = logits.clamp(-1, 1)
 
-        
-        logits = self.margin_softmax(logits, labels.squeeze())
+        # TODO: embeddings arg for AdaFace
+        try:
+            logits = self.margin_softmax(logits, labels.squeeze(), embeddings=embeddings)
+        except:
+            logits = self.margin_softmax(logits, labels.squeeze())
         loss = self.dist_cross_entropy(logits, labels)
         return loss
 
     def state_dict(self, destination=None, prefix="", keep_vars=False):
-        if destination is None: 
+        if destination is None:
             destination = collections.OrderedDict()
             destination._metadata = collections.OrderedDict()
 
@@ -239,16 +247,20 @@ class PartialFC(torch.nn.Module):
             self.weight_activated_mom.zero_()
             self.weight_index.zero_()
         else:
-            self.weight_activated.data = state_dict["weight"].to(self.weight_activated.data.device)
+            self.weight_activated.data = state_dict["weight"].to(
+                self.weight_activated.data.device
+            )
 
 
 class PartialFCAdamW(torch.nn.Module):
-    def __init__(self,
+    def __init__(
+        self,
         margin_loss: Callable,
         embedding_size: int,
         num_classes: int,
         sample_rate: float = 1.0,
-        fp16: bool = False,):
+        fp16: bool = False,
+    ):
         """
         Paramenters:
         -----------
@@ -289,18 +301,20 @@ class PartialFCAdamW(torch.nn.Module):
         self.init_weight_update: bool = True
 
         if self.sample_rate < 1:
-            self.register_buffer("weight",
-                tensor=torch.normal(0, 0.01, (self.num_local, embedding_size)))
-            self.register_buffer("weight_exp_avg",
-                tensor=torch.zeros_like(self.weight))
-            self.register_buffer("weight_exp_avg_sq",
-                tensor=torch.zeros_like(self.weight))
-            self.register_parameter("weight_activated",
-                param=torch.nn.Parameter(torch.empty(0, 0)))
-            self.register_buffer("weight_activated_exp_avg",
-                tensor=torch.empty(0, 0))
-            self.register_buffer("weight_activated_exp_avg_sq",
-                tensor=torch.empty(0, 0))
+            self.register_buffer(
+                "weight", tensor=torch.normal(0, 0.01, (self.num_local, embedding_size))
+            )
+            self.register_buffer("weight_exp_avg", tensor=torch.zeros_like(self.weight))
+            self.register_buffer(
+                "weight_exp_avg_sq", tensor=torch.zeros_like(self.weight)
+            )
+            self.register_parameter(
+                "weight_activated", param=torch.nn.Parameter(torch.empty(0, 0))
+            )
+            self.register_buffer("weight_activated_exp_avg", tensor=torch.empty(0, 0))
+            self.register_buffer(
+                "weight_activated_exp_avg_sq", tensor=torch.empty(0, 0)
+            )
         else:
             self.weight_activated = torch.nn.Parameter(
                 torch.normal(0, 0.01, (self.num_local, embedding_size))
@@ -333,16 +347,19 @@ class PartialFCAdamW(torch.nn.Module):
             # TODO the params of partial fc must be last in the params list
             optimizer.state.pop(optimizer.param_groups[-1]["params"][0], None)
             optimizer.param_groups[-1]["params"][0] = self.weight_activated
-            optimizer.state[self.weight_activated]["exp_avg"] = self.weight_activated_exp_avg
-            optimizer.state[self.weight_activated]["exp_avg_sq"] = self.weight_activated_exp_avg_sq
+            optimizer.state[self.weight_activated][
+                "exp_avg"
+            ] = self.weight_activated_exp_avg
+            optimizer.state[self.weight_activated][
+                "exp_avg_sq"
+            ] = self.weight_activated_exp_avg_sq
             optimizer.state[self.weight_activated]["step"] = self.step
         else:
             raise
 
     @torch.no_grad()
     def update(self):
-        """ partial weight to global
-        """
+        """partial weight to global"""
         if self.init_weight_update:
             self.init_weight_update = False
             return
@@ -357,6 +374,7 @@ class PartialFCAdamW(torch.nn.Module):
         local_embeddings: torch.Tensor,
         local_labels: torch.Tensor,
         optimizer: torch.optim.Optimizer,
+        **kwargs,
     ):
         """
         Parameters:
@@ -378,9 +396,11 @@ class PartialFCAdamW(torch.nn.Module):
         batch_size = local_embeddings.size(0)
         if self.last_batch_size == 0:
             self.last_batch_size = batch_size
-        assert self.last_batch_size == batch_size, (
-            "last batch size do not equal current batch size: {} vs {}".format(
-            self.last_batch_size, batch_size))
+        assert (
+            self.last_batch_size == batch_size
+        ), "last batch size do not equal current batch size: {} vs {}".format(
+            self.last_batch_size, batch_size
+        )
 
         _gather_embeddings = [
             torch.zeros((batch_size, self.embedding_size)).cuda()
@@ -413,9 +433,10 @@ class PartialFCAdamW(torch.nn.Module):
             logits = logits.float()
         logits = logits.clamp(-1, 1)
 
-        logits = self.margin_softmax(logits, labels)
+        logits = self.margin_softmax(logits, labels, **kwargs)
         loss = self.dist_cross_entropy(logits, labels)
         return loss
+
 
 class DistCrossEntropyFunc(torch.autograd.Function):
     """
