@@ -1,7 +1,9 @@
 from timm import create_model
 from tqdm import tqdm
 from torch import optim
+from loguru import logger
 import torch
+import time
 import torch.nn as nn
 import os.path as osp
 import os
@@ -80,7 +82,7 @@ class Trainer:
             num_classes=self.embedding_dim,
             pretrained=True,
             global_pool="avg",
-        )
+        ).cuda()
         if self.is_distributed:
             model = DDP(
                 model,
@@ -89,9 +91,9 @@ class Trainer:
                 bucket_cap_mb=16,
                 find_unused_parameters=True,
             )
-            self.model._set_static_graph()
+            model._set_static_graph()
         self.model = model
-        self.model.train().cuda()
+        self.model.train()
 
         self.train_loader = get_dataloader(
             self.dataset, self.is_distributed, self.batch_size, self.cfg.NUM_WORKERS
@@ -153,8 +155,12 @@ class Trainer:
         )
 
     def train(self):
+        ts = time.time()
         self.before_train()
+        logger.info('Begin training...')
         self.train_in_epoch()
+        te = time.time()
+        logger.info(f'Finish training with {(te - ts) / 3600:.3f} hours...')
 
     def train_in_epoch(self):
         for self.epoch in range(self.max_epoch):

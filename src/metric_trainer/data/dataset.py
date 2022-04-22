@@ -13,6 +13,7 @@ from tqdm import tqdm
 from torch.utils.data import distributed
 from torch.utils.data.sampler import RandomSampler
 from torch.utils.data import DataLoader
+from ..utils.dist import get_world_size
 
 
 def get_dataloader(dataset, is_dist, batch_size, workers):
@@ -22,7 +23,7 @@ def get_dataloader(dataset, is_dist, batch_size, workers):
         else RandomSampler(dataset)
     )
     nw = min(
-        [os.cpu_count(), batch_size if batch_size > 1 else 0, workers]
+        [os.cpu_count() // get_world_size(), batch_size if batch_size > 1 else 0, workers]
     )  # number of workers
     data_loader = DataLoader(
         dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=nw
