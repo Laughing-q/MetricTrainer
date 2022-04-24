@@ -4,6 +4,7 @@ import os
 from typing import List
 from loguru import logger
 from metric_trainer.eval.verification import test, load_bin
+from lqcv.utils.timer import Timer
 
 
 class CallBackVerification(object):
@@ -69,11 +70,21 @@ if __name__ == "__main__":
     model.cuda()
     model.eval()
 
+    # img = torch.rand((1, 3, 112, 112), dtype=torch.float32).cuda()
+    # time = Timer(start=True, round=2, unit="ms")
+    # for i in range(100):
+    #     model(img)
+    # print(f"average inference time: {time.since_start() / 100}ms")
+    # exit()
+
     callback_verification = CallBackVerification(
-        val_targets=["lfw", "cfp_fp", "agedb_30"],
+        val_targets=["lfw", "cfp_fp", "agedb_30", "calfw", "cplfw", "vgg2_fp"],
         rec_prefix="/dataset/dataset/glint360k/glint360k",
     )
     callback_verification(model)
-    # LFW: 0.99683
-    # cfp_fp: 0.96514
-    # agedb_30: 0.97200
+    # LFW: 0.99683, 57s
+    # cfp_fp: 0.96514, 70s
+    # agedb_30: 0.97200, 60s
+    # calfw: 0.95583, 60s
+    # cplfw: 0.91133, 60s
+    # vgg2_fp: 0.94860, 50s

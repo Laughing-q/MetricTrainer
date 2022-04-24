@@ -3,7 +3,9 @@ import os
 from typing import List
 from loguru import logger
 from metric_trainer.eval.verification import test, load_bin
+from metric_trainer.core.evaluator import Evalautor
 from timm import create_model
+from lqcv.utils.timer import Timer
 
 
 class CallBackVerification(object):
@@ -50,21 +52,42 @@ class CallBackVerification(object):
 
 if __name__ == "__main__":
     model = create_model(
-        model_name='cspresnet50',
+        model_name="cspresnet50",
         num_classes=512,
         pretrained=False,
         global_pool="avg",
     )
-    ckpt = torch.load('runs/model.pt')
-    model.load_state_dict(ckpt['model'])
+    ckpt = torch.load("runs/model.pt")
+    model.load_state_dict(ckpt["model"])
     model.cuda()
     model.eval()
 
-    callback_verification = CallBackVerification(
-        val_targets=["lfw", "cfp_fp", "agedb_30"],
-        rec_prefix="/dataset/dataset/glint360k/glint360k",
+    # img = torch.rand((1, 3, 112, 112), dtype=torch.float32).cuda()
+    # time = Timer(start=True, round=2, unit="ms")
+    # for i in range(100):
+    #     model(img)
+    # print(f"average inference time: {time.since_start() / 100}ms")
+    # exit()
+    testor = Evalautor(
+        val_targets=["lfw", "cfp_fp", "agedb_30", "calfw", "cplfw", "vgg2_fp"],
+        root_dir="/dataset/dataset/glint360k/glint360k",
+        batch_size=16,
     )
-    callback_verification(model)
-    # LFW: 0.99683
-    # cfp_fp: 0.96514
-    # agedb_30: 0.97200
+    testor.val(model, flip=False)
+
+    # no flip: 0.99617
+    # flip: 
+
+    # callback_verification = CallBackVerification(
+    #     val_targets=["lfw", "cfp_fp", "agedb_30", "calfw", "cplfw", "vgg2_fp"],
+    #     rec_prefix="/dataset/dataset/glint360k/glint360k",
+    # )
+    # callback_verification(model)
+
+    # 0.338233, 0.99717
+    # LFW: 0.99800, 29s
+    # cfp_fp: 0.98186, 34s
+    # agedb_30: 0.97983, 29s
+    # calfw: 0.96017, 29s
+    # cplfw: 0.94017, 29s
+    # vgg2_fp: 0.95160, 24s

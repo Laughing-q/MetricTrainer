@@ -201,6 +201,11 @@ def evaluate(embeddings, actual_issame, nrof_folds=10, pca=0):
 
 @torch.no_grad()
 def load_bin(path, image_size):
+    """
+        assume there are 6000 pairs.
+        data: [1a, 1b, 2a, 2b, ...6000a, 6000b], len(data)=12000
+        issame: [True, False, ..., True], len(issame)=6000
+    """
     try:
         with open(path, "rb") as f:
             bins, issame_list = pickle.load(f)  # py2
@@ -269,14 +274,12 @@ def test(data_set, backbone, batch_size, nfolds=10):
             _xnorm_cnt += 1
     _xnorm /= _xnorm_cnt
 
-    embeddings = embeddings_list[0].copy()
-    embeddings = sklearn.preprocessing.normalize(embeddings)
     acc1 = 0.0
     std1 = 0.0
     embeddings = embeddings_list[0] + embeddings_list[1]
     embeddings = sklearn.preprocessing.normalize(embeddings)
     # print(embeddings.shape)
-    logger.info("infer time", time_consumed)
+    logger.info(f"infer time: {time_consumed}")
     _, _, accuracy, val, val_std, far = evaluate(
         embeddings, issame_list, nrof_folds=nfolds
     )

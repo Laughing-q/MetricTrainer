@@ -2,6 +2,7 @@ import os
 import os.path as osp
 import numbers
 import torch
+import pickle
 import numpy as np
 import glob
 import mxnet as mx
@@ -10,6 +11,7 @@ from pathlib import Path
 import albumentations as A
 import cv2
 from tqdm import tqdm
+from mxnet import ndarray as nd
 from torch.utils.data import distributed
 from torch.utils.data.sampler import RandomSampler
 from torch.utils.data import DataLoader
@@ -123,7 +125,7 @@ class FaceValData(Dataset):
         return torch.from_numpy(img)
 
 
-class Glint360Loader(Dataset):
+class Glint360Data(Dataset):
     """Read training data from glint360k"""
 
     def __init__(self, root_dir, img_size=112, rgb=True):
@@ -191,9 +193,45 @@ class Glint360Loader(Dataset):
         return len(self.imgidx)
 
 
+class ValBinData(Dataset):
+    """
+    Read image pairs from prepared *.bin file which download from insightface repo.
+
+    Args:
+        bin_file: bin file prepared from insightface.
+        img_size: image size.
+        rgb: swap `bgr` channels to `rgb` if True.
+    """
+
+    def __init__(self, bin_file, img_size=112, rgb=True) -> None:
+        super().__init__()
+        try:
+            with open(bin_file, "rb") as f:
+                self.bins, self.issame_list = pickle.load(f)  # py2
+        except UnicodeDecodeError:
+            with open(bin_file, "rb") as f:
+                self.bins, self.issame_list = pickle.load(f, encoding="bytes")  # py3
+        self.img_size = img_size
+        self.rgb = rgb
+
+    def __len__(self):
+        return len(self.bins)
+
+    def __getitem__(self, index):
+        img = mx.image.imdecode(self.bins[index])
+        if img.shape[1] != self.img_size:
+            img = mx.image.resize_short(img, self.img_size)
+        img = img.asnumpy()
+        if self.rgb:
+            img = img[..., ::-1]
+        img = img.transpose(2, 0, 1)
+        img = np.ascontiguousarray(img)
+        return torch.from_numpy(img)
+
+
 if __name__ == "__main__":
     # data = FaceTrainData(img_root='/dataset/dataset/face_test')
-    data = Glint360Loader(root_dir="/dataset/dataset/glint360k/glint360k")
+    data = Glint360Data(root_dir="/dataset/dataset/glint360k/glint360k")
     for d in data:
         img, label = d
         print(img.shape)

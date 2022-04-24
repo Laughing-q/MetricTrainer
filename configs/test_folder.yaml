@@ -3,20 +3,28 @@ MODEL:
   LOSS: 'circleloss'
   EMBEDDING_DIM: 512
   NUM_CLASS: 360232
+  SAMPLE_RATE: 0.1
 
 DATASET:
   TYPE: 'folder'  # 'folder'
   TRAIN: '/dataset/dataset/face_test/'
-  VAL: ''
+  VAL: '/dataset/dataset/glint360k/glint360k'
+  VAL_TARGETS: ['lfw', 'cfp_fp']
   TEST: ''
   IMG_SIZE: 112
+  NUM_IMAGES: 17091657
 
 SOLVER:
   OPTIM: 'sgd'
-  BATCH_SIZE: 32
-  BASE_LR: 0.1
+  BATCH_SIZE_PER_GPU: 32
+  BASE_LR: 0.4
   WARMUP_EPOCH: 2
+  NUM_EPOCH: 20
   MOMENTUM: 0.9
-  WEIGHT_DECAY: 0.0001
+  WEIGHT_DECAY: 0.0005
   LR_SCHEDULER_NAME: 'cosine'
-  FP16: True
+  FP16: False
+  LOGGER_STEP: 10
+  VAL_STEP: 100
+OUTPUT: 'test'
+NUM_WORKERS: 8

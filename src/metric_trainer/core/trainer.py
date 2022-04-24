@@ -1,25 +1,29 @@
 from timm import create_model
 from tqdm import tqdm
 from torch import optim
-from loguru import logger
+
+# from loguru import logger
 import torch
 import time
 import torch.nn as nn
+import numpy as np
 import os.path as osp
 import os
-from ..data.dataset import FaceTrainData, Glint360Loader, get_dataloader
 from torch.nn.parallel import DistributedDataParallel as DDP
+from .evaluator import Evalautor
+from ..data.dataset import FaceTrainData, Glint360Data, get_dataloader
+from ..utils.callbacks import CallBackSaveLog
 from ..utils.lr_scheduler import PolyScheduler
 from ..utils.dist import get_world_size, get_rank
-from ..utils.callbacks import CallBackVerification, CallBackLogging
 from ..utils.metric import AverageMeter
 from ..models.losses import build_metric
-from ..utils.logger import setup_logger
+
+# from ..utils.logger import setup_logger
 
 
 def build_dataset(data, *args, **kwargs):
     if data == "glint360k":
-        return Glint360Loader(*args, **kwargs)
+        return Glint360Data(*args, **kwargs)
     elif data == "folder":
         return FaceTrainData(*args, **kwargs)
 
@@ -39,10 +43,10 @@ class Trainer:
         self.fp16 = cfg.SOLVER.FP16
         self.max_epoch = cfg.SOLVER.NUM_EPOCH
         self.save_dir = cfg.OUTPUT
+        self.img_size = cfg.DATASET.IMG_SIZE
 
-        self.dataset = build_dataset(
-            cfg.DATASET.TYPE, cfg.DATASET.TRAIN, cfg.DATASET.IMG_SIZE
-        )
+        self.dataset = build_dataset(cfg.DATASET.TYPE, cfg.DATASET.TRAIN, self.img_size)
+        self.best_fitness = 0
 
         # class-aware args
         self.sample_rate = cfg.MODEL.SAMPLE_RATE
@@ -107,46 +111,75 @@ class Trainer:
             warmup_steps=warmup_step,
         )
 
-        self.callback_verification = CallBackVerification(
-            val_targets=self.cfg.DATASET.VAL_TARGETS, rec_prefix=self.cfg.DATASET.VAL
-        )
-        self.logging = CallBackLogging(
-            self.cfg.SOLVER.LOGGER_STEP,
-            total_step,
-            self.batch_size,
+        self.evaluator = Evalautor(
+            val_targets=self.cfg.DATASET.VAL_TARGETS,
+            root_dir=self.cfg.DATASET.VAL,
+            batch_size=self.batch_size,
         )
         self.loss_am = AverageMeter()
 
-        os.makedirs(self.save_dir, exist_ok=True)
-        setup_logger(
-            self.save_dir,
-            distributed_rank=self.rank,
-            filename="train_log.txt",
-            mode="a",
+        self.callback = CallBackSaveLog(
+            save_dir=self.save_dir, val_targets=self.cfg.DATASET.VAL_TARGETS
         )
+
+        os.makedirs(self.save_dir, exist_ok=True)
+        # setup_logger(
+        #     self.save_dir,
+        #     distributed_rank=self.rank,
+        #     filename="train_log.txt",
+        #     mode="a",
+        # )
 
     def train(self):
         ts = time.time()
         self.before_train()
-        logger.info('Begin training...')
+        print("Begin training...")
         self.train_in_epoch()
         te = time.time()
-        logger.info(f'Finish training with {(te - ts) / 3600:.3f} hours...')
+        print(f"Finish training with {(te - ts) / 3600:.3f} hours...")
+
+    def before_epoch(self):
+        if self.is_distributed:
+            self.train_loader.sampler.set_epoch(self.epoch)
+
+        # message
+        s = ("\n" + "%10s" * 5) % ("Epoch", "gpu_mem", "loss", "lr", "img_size")
+        print(s)
+        self.pbar = enumerate(self.train_loader)
+        if self.rank == 0:
+            self.pbar = tqdm(self.pbar, total=len(self.train_loader))
 
     def train_in_epoch(self):
         for self.epoch in range(self.max_epoch):
+            self.before_epoch()
             self.train_in_iter()
+            self.after_epoch()
+
+    def after_epoch(self):
+        with torch.no_grad():
+            accs, stds = self.evaluator.val(self.model, flip=True)
+
+        log_vals = [
+            self.epoch,
+            self.lr_scheduler.get_last_lr()[0],
+            self.img_size,
+        ] + accs
+        self.callback(log_vals)
+
+        fi = np.array(accs).mean()
+        if fi > self.best_fitness:
+            self.best_fitness = fi
+        self.save_ckpt(save_name="last.pt", best=self.best_fitness == fi)
 
     def train_in_iter(self):
-        if self.is_distributed:
-            self.train_loader.sampler.set_epoch(self.epoch)
-        for self.iter, (imgs, labels) in enumerate(self.train_loader):
+        for self.iter, (imgs, labels) in self.pbar:
             imgs = imgs.cuda()
             imgs = imgs / 255.0
             labels = labels.cuda()
 
             embeddings = self.model(imgs)
-            loss = self.loss_func(embeddings, labels, self.optimizer)
+            # loss = self.loss_func(embeddings, labels, self.optimizer)
+            loss = self.loss_func(embeddings, labels)
             self.optimizer.zero_grad()
             if self.fp16:
                 self.scaler.scale(loss).backward()
@@ -162,32 +195,27 @@ class Trainer:
             self.lr_scheduler.step()
             with torch.no_grad():
                 self.loss_am.update(loss.item())
-                self.logging(
-                    # self.global_iter(),
-                    self.iter,
-                    self.max_iter,
-                    self.loss_am,
-                    self.epoch,
-                    self.max_epoch,
-                    self.fp16,
+                self.after_iter()
+
+    def after_iter(self):
+        if self.rank != 0:
+            return
+        mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
+        self.pbar.set_description(
+            (
+                ("%10s" * 2 + "%10.4g" * 3)
+                % (
+                    f"{self.epoch}/{self.max_epoch - 1}",
+                    mem,
+                    self.loss_am.avg,
                     self.lr_scheduler.get_last_lr()[0],
-                    self.scaler,
+                    self.img_size,
                 )
-                if (
-                    self.global_iter() % self.cfg.SOLVER.VAL_STEP == 0
-                    and self.global_iter() > 50
-                ):
-                    self.callback_verification(self.global_iter(), self.model)
-                    # self.save_ckpt()
-        with torch.no_grad():
-            self.callback_verification(self.global_iter(), self.model)
-        self.save_ckpt()
+            )
+        )
 
-    def global_iter(self):
-        return self.iter + self.max_iter * self.epoch
-
-    def save_ckpt(self):
-        path_pfc = osp.join(self.cfg.OUTPUT, "softmax_fc_gpu_{}.pt".format(self.rank))
+    def save_ckpt(self, save_name, best=False):
+        path_pfc = osp.join(self.save_dir, "softmax_fc_gpu_{}.pt".format(self.rank))
         torch.save(self.loss_func.state_dict(), path_pfc)
         model = (
             self.model.module
@@ -201,8 +229,12 @@ class Trainer:
             "optimizer": self.optimizer.state_dict(),
         }
         if self.rank == 0:
-            path_module = osp.join(self.cfg.OUTPUT, "model.pt")
+            path_module = osp.join(self.save_dir, save_name)
             torch.save(ckpt, path_module)
+            if best:
+                path_module = osp.join(self.save_dir, "best.pt")
+                torch.save(ckpt, path_module)
 
-    def eval(self):
-        pass
+    @property
+    def global_iter(self):
+        return self.iter + self.max_iter * self.epoch

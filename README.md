@@ -3,16 +3,17 @@
 - This repo is experimental.
 
 ## TODO
-- [ ] optimizer
-- [ ] scheduler
 - [X] logger
 - [X] eval
 - [X] DDP
 - [X] amp training
+- [X] dataloader
+- [X] saving model stuff
+- [ ] support other optimizer
+- [ ] support other scheduler
 - [ ] ema
-- [ ] dataloader
 - [ ] resume
-- [ ] saving model stuff
+- [ ] plot results
 
 
 ## Quick Start
