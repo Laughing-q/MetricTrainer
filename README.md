@@ -9,11 +9,11 @@
 - [X] amp training
 - [X] dataloader
 - [X] saving model stuff
+- [X] resume
+- [X] plot results
 - [ ] support other optimizer
 - [ ] support other scheduler
 - [ ] ema
-- [ ] resume
-- [ ] plot results
 
 
 ## Quick Start
@@ -34,3 +34,5 @@ pip install -e .
 
 </details>
 
+## Tips
+- I haven't test resume at all, maybe there will get some bug.

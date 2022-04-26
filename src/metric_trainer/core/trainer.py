@@ -1,6 +1,7 @@
 from timm import create_model
 from tqdm import tqdm
 from torch import optim
+from omegaconf import OmegaConf
 
 # from loguru import logger
 import torch
@@ -16,6 +17,8 @@ from ..utils.callbacks import CallBackSaveLog
 from ..utils.lr_scheduler import PolyScheduler
 from ..utils.dist import get_world_size, get_rank
 from ..utils.metric import AverageMeter
+from ..utils.plots import plot_results
+from ..utils.general import colorstr, strip_optimizer
 from ..models.losses import build_metric
 
 # from ..utils.logger import setup_logger
@@ -44,9 +47,14 @@ class Trainer:
         self.max_epoch = cfg.SOLVER.NUM_EPOCH
         self.save_dir = cfg.OUTPUT
         self.img_size = cfg.DATASET.IMG_SIZE
+        self.resume_dir = cfg.get("RESUME_DIR", None)
 
         self.dataset = build_dataset(cfg.DATASET.TYPE, cfg.DATASET.TRAIN, self.img_size)
         self.best_fitness = 0
+        self.start_epoch = 0
+        self.last = osp.join(self.save_dir, "last.pt")
+        self.best = osp.join(self.save_dir, "best.pt")
+        # self.partial_fc = 'partial_fc' in cfg.MODEL.LOSS
 
         # class-aware args
         self.sample_rate = cfg.MODEL.SAMPLE_RATE
@@ -57,7 +65,17 @@ class Trainer:
             num_classes=self.embedding_dim,
             pretrained=True,
             global_pool="avg",
-        ).cuda()
+        )
+        loss_func = build_metric(
+            self.cfg.MODEL.LOSS,
+            self.embedding_dim,
+            self.num_classes,
+            self.sample_rate,
+            self.fp16,
+        )
+        model, loss_func = self.resume_train(model, loss_func)
+        model = model.cuda()
+        loss_func = loss_func.cuda()
         if self.is_distributed:
             model = DDP(
                 model,
@@ -69,21 +87,14 @@ class Trainer:
             model._set_static_graph()
         self.model = model
         self.model.train()
+        self.loss_func = loss_func
+        self.loss_func.train()
 
         self.train_loader = get_dataloader(
             self.dataset, self.is_distributed, self.batch_size, self.cfg.NUM_WORKERS
         )
         self.max_iter = len(self.train_loader)
 
-        self.loss_func = build_metric(
-            self.cfg.MODEL.LOSS,
-            self.embedding_dim,
-            self.num_classes,
-            self.sample_rate,
-            self.fp16,
-        )
-
-        self.loss_func.train().cuda()
         self.scaler = torch.cuda.amp.grad_scaler.GradScaler(growth_interval=100)
 
         self.optimizer = optim.SGD(
@@ -110,6 +121,7 @@ class Trainer:
             max_steps=total_step,
             warmup_steps=warmup_step,
         )
+        self.lr_scheduler.last_epoch = self.start_epoch - 1  # do not move
 
         self.evaluator = Evalautor(
             val_targets=self.cfg.DATASET.VAL_TARGETS,
@@ -130,13 +142,31 @@ class Trainer:
         #     mode="a",
         # )
 
+        with open(osp.join(self.save_dir, "cfg.yaml"), "w") as f:
+            OmegaConf.save(self.cfg, f)
+        print(colorstr("train: ") + "Begin training...")
+        self.ts = time.time()
+
     def train(self):
-        ts = time.time()
         self.before_train()
-        print("Begin training...")
         self.train_in_epoch()
-        te = time.time()
-        print(f"Finish training with {(te - ts) / 3600:.3f} hours...")
+        self.after_train()
+
+    def after_train(self):
+        self.te = time.time()
+        if osp.exists(self.save_dir):
+            plot_results(file=osp.join("results.csv"))  # save results.png
+        print(
+            colorstr("train: ")
+            + f"Finish training with {(self.te - self.ts) / 3600:.3f} hours..."
+        )
+        for f in [self.last, self.best]:
+            if not osp.exists(f):
+                continue
+            strip_optimizer(f)  # strip optimizers
+        # TODO
+        with open(osp.join(self.save_dir, "train.txt"), "a") as f:
+            f.write(f"{(self.te - self.ts) / 3600:.3f}")
 
     def before_epoch(self):
         if self.is_distributed:
@@ -150,7 +180,7 @@ class Trainer:
             self.pbar = tqdm(self.pbar, total=len(self.train_loader))
 
     def train_in_epoch(self):
-        for self.epoch in range(self.max_epoch):
+        for self.epoch in range(self.start_epoch, self.max_epoch):
             self.before_epoch()
             self.train_in_iter()
             self.after_epoch()
@@ -161,15 +191,16 @@ class Trainer:
 
         log_vals = [
             self.epoch,
-            self.lr_scheduler.get_last_lr()[0],
             self.img_size,
+            self.lr_scheduler.get_last_lr()[0],
+            self.loss_am.avg,
         ] + accs
         self.callback(log_vals)
 
         fi = np.array(accs).mean()
         if fi > self.best_fitness:
             self.best_fitness = fi
-        self.save_ckpt(save_name="last.pt", best=self.best_fitness == fi)
+        self.save_ckpt(save_path=self.last, best=self.best_fitness == fi)
 
     def train_in_iter(self):
         for self.iter, (imgs, labels) in self.pbar:
@@ -214,7 +245,7 @@ class Trainer:
             )
         )
 
-    def save_ckpt(self, save_name, best=False):
+    def save_ckpt(self, save_path, best=False):
         path_pfc = osp.join(self.save_dir, "softmax_fc_gpu_{}.pt".format(self.rank))
         torch.save(self.loss_func.state_dict(), path_pfc)
         model = (
@@ -229,11 +260,34 @@ class Trainer:
             "optimizer": self.optimizer.state_dict(),
         }
         if self.rank == 0:
-            path_module = osp.join(self.save_dir, save_name)
-            torch.save(ckpt, path_module)
+            torch.save(ckpt, save_path)
             if best:
-                path_module = osp.join(self.save_dir, "best.pt")
-                torch.save(ckpt, path_module)
+                torch.save(ckpt, self.best)
+
+    def resume_train(self, model, loss):
+        if self.resume_dir is None or len(self.resume_dir) == 0:
+            return model, loss
+        print(colorstr("resume: ") + f"Resuming from {self.resume_dir}...")
+        model_path = osp.join(self.resume_dir, "last.pt")
+        ckpt = torch.load(model_path)
+        # Optimizer
+        if ckpt["optimizer"] is not None:
+            self.optimizer.load_state_dict(ckpt["optimizer"])
+            self.best_fitness = ckpt["best_fitness"]
+
+        # Epochs
+        self.start_epoch = ckpt["epoch"] + 1
+        assert (
+            self.start_epoch > 0
+        ), f"{model_path} training to {self.epochs} epochs is finished, nothing to resume."
+        model.load_state_dict(ckpt["model"], strict=False)  # load
+        del ckpt
+
+        loss_path = osp.join(self.resume_dir, f"softmax_fc_gpu_{self.rank}.pt")
+        ckpt = torch.load(loss_path)
+        loss.load_state_dict(ckpt)
+        del ckpt
+        return model, loss
 
     @property
     def global_iter(self):

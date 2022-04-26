@@ -1,8 +1,4 @@
-import os
-import time
-from typing import List
-from loguru import logger
-import torch
+import os.path as osp
 
 
 class CallBackSaveLog(object):
@@ -11,20 +7,21 @@ class CallBackSaveLog(object):
         self.save_dir = save_dir
         self.keys = [
             "epoch",
-            "lr",
             "img_size",
+            "lr",
+            "loss",
         ] + val_targets
 
     def __call__(self, vals):
-        if not os.path.exists(self.save_dir):
+        if not osp.exists(self.save_dir):
             print(f"{self.save_dir} is not existed, skip!")
-            return 
+            return
 
-        file = os.path.join(self.save_dir, "results.txt")
+        file = osp.join(self.save_dir, "results.txt")
         n = len(vals)  # number of cols
         s = (
             ""
-            if os.path.exists(file)
+            if osp.exists(file)
             else (("%20s," * n % tuple(self.keys)).rstrip(",") + "\n")
         )  # add header
         with open(file, "a") as f:
