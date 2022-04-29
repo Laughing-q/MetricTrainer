@@ -60,11 +60,16 @@ class Trainer:
         self.sample_rate = cfg.MODEL.SAMPLE_RATE
 
     def before_train(self):
+        print(colorstr("Creating Model: ") + f"{self.backbone}...")
         model = create_model(
             model_name=self.backbone,
             num_classes=self.embedding_dim,
             pretrained=True,
             global_pool="avg",
+        )
+        print(
+            colorstr("Creating Loss Function and Optimizer: ")
+            + f"{self.cfg.MODEL.LOSS}..."
         )
         loss_func = build_metric(
             self.cfg.MODEL.LOSS,
@@ -72,6 +77,15 @@ class Trainer:
             self.num_classes,
             self.sample_rate,
             self.fp16,
+        )
+        self.optimizer = optim.SGD(
+            params=[
+                {"params": self.model.parameters()},
+                {"params": self.loss_func.parameters()},
+            ],
+            lr=self.cfg.SOLVER.BASE_LR,
+            momentum=self.cfg.SOLVER.MOMENTUM,
+            weight_decay=self.cfg.SOLVER.WEIGHT_DECAY,
         )
         model, loss_func = self.resume_train(model, loss_func)
         model = model.cuda()
@@ -90,6 +104,7 @@ class Trainer:
         self.loss_func = loss_func
         self.loss_func.train()
 
+        print(colorstr("Creating DataLoader: ") + f"{self.cfg.MODEL.LOSS}...")
         self.train_loader = get_dataloader(
             self.dataset, self.is_distributed, self.batch_size, self.cfg.NUM_WORKERS
         )
@@ -97,32 +112,26 @@ class Trainer:
 
         self.scaler = torch.cuda.amp.grad_scaler.GradScaler(growth_interval=100)
 
-        self.optimizer = optim.SGD(
-            params=[
-                {"params": self.model.parameters()},
-                {"params": self.loss_func.parameters()},
-            ],
-            lr=self.cfg.SOLVER.BASE_LR,
-            momentum=self.cfg.SOLVER.MOMENTUM,
-            weight_decay=self.cfg.SOLVER.WEIGHT_DECAY,
-        )
         total_batch_size = self.cfg.SOLVER.BATCH_SIZE_PER_GPU * get_world_size()
+        # steps of one epoch
+        steps = self.cfg.DATASET.NUM_IMAGES // total_batch_size
         warmup_step = (
-            self.cfg.DATASET.NUM_IMAGES
-            // total_batch_size
+            steps
             * self.cfg.SOLVER.WARMUP_EPOCH
         )
         total_step = (
-            self.cfg.DATASET.NUM_IMAGES // total_batch_size * self.cfg.SOLVER.NUM_EPOCH
+            steps * self.cfg.SOLVER.NUM_EPOCH
         )
+        # NOTE:this lr_scheduler reduce lr by steps, not epochs
         self.lr_scheduler = PolyScheduler(
             optimizer=self.optimizer,
             base_lr=self.cfg.SOLVER.BASE_LR,
             max_steps=total_step,
             warmup_steps=warmup_step,
         )
-        self.lr_scheduler.last_epoch = self.start_epoch - 1  # do not move
+        self.lr_scheduler.last_epoch = self.start_epoch * steps - 1  # do not move
 
+        print(colorstr("Creating Evalautor: ") + f"{self.cfg.DATASET.VAL_TARGETS}...")
         self.evaluator = Evalautor(
             val_targets=self.cfg.DATASET.VAL_TARGETS,
             root_dir=self.cfg.DATASET.VAL,
@@ -144,7 +153,7 @@ class Trainer:
 
         with open(osp.join(self.save_dir, "cfg.yaml"), "w") as f:
             OmegaConf.save(self.cfg, f)
-        print(colorstr("train: ") + "Begin training...")
+        print(colorstr("Train: ") + "Begin training...")
         self.ts = time.time()
 
     def train(self):
@@ -157,7 +166,7 @@ class Trainer:
         if osp.exists(self.save_dir):
             plot_results(file=osp.join("results.csv"))  # save results.png
         print(
-            colorstr("train: ")
+            colorstr("Train: ")
             + f"Finish training with {(self.te - self.ts) / 3600:.3f} hours..."
         )
         for f in [self.last, self.best]:
