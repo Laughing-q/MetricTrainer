@@ -174,10 +174,11 @@ class AdaFace(torch.nn.Module):
         # print("self.s", self.s)
         # print("self.t_alpha", self.t_alpha)
 
-    def forward(self, logits, labels, embeddings, **kwargs):
+    def forward(self, logits, labels, embeddings):
         # partial fc
         index_positive = torch.where(labels != -1)[0]
         target_logit = logits[index_positive, labels[index_positive].view(-1)]
+        embeddings = embeddings[index_positive]
 
         norms = torch.norm(embeddings, p=2, dim=-1, keepdim=True)
         target_logit = target_logit.clamp(-1 + self.eps, 1 - self.eps)  # for stability
