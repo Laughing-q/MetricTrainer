@@ -200,7 +200,7 @@ class AdaFace(torch.nn.Module):
 
         # g_angular
         m_arc = torch.zeros(labels.size()[0], device=target_logit.device)
-        m_arc.scatter_(1, labels.reshape(-1, 1), 1.0)
+        m_arc.scatter_(1, labels, 1.0)
         g_angular = self.m * margin_scaler * -1
         m_arc = m_arc * g_angular
         theta = target_logit.acos()
@@ -209,7 +209,7 @@ class AdaFace(torch.nn.Module):
 
         # g_additive
         m_cos = torch.zeros(labels.size()[0], device=target_logit.device)
-        m_cos.scatter_(1, labels.reshape(-1, 1), 1.0)
+        m_cos.scatter_(1, labels, 1.0)
         g_add = self.m + (self.m * margin_scaler)
         m_cos = m_cos * g_add
         final_target_logit = target_logit - m_cos
