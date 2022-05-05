@@ -21,7 +21,7 @@ def build_metric(name, embedding_dim, num_class, sample_rate, fp16):
     elif name == "tripletloss":
         loss_func = losses.TripletMarginLoss(reducer=reducer)
     elif "partial_fc" in name:
-        if 'adaface' in name:
+        if "adaface" in name:
             margin_loss = AdaFace()
         else:
             margin_loss = CombinedMarginLoss(
@@ -147,6 +147,7 @@ class CosFace(torch.nn.Module):
         logits = logits * self.s
         return logits
 
+
 class AdaFace(torch.nn.Module):
     def __init__(
         self,
@@ -177,7 +178,6 @@ class AdaFace(torch.nn.Module):
         # partial fc
         index_positive = torch.where(labels != -1)[0]
         target_logit = logits[index_positive, labels[index_positive].view(-1)]
-        print(logits.size(), target_logit.size())
 
         norms = torch.norm(embeddings, p=2, dim=-1, keepdim=True)
         target_logit = target_logit.clamp(-1 + self.eps, 1 - self.eps)  # for stability
@@ -197,28 +197,24 @@ class AdaFace(torch.nn.Module):
         )  # 66% between -1, 1
         margin_scaler = margin_scaler * self.h  # 68% between -0.333 ,0.333 when h:0.333
         margin_scaler = torch.clip(margin_scaler, -1, 1)
+        margin_scaler = margin_scaler.squeeze_()
 
         # g_angular
-        m_arc = torch.zeros(labels.size()[0], device=target_logit.device)
-        m_arc.scatter_(1, labels, 1.0)
         g_angular = self.m * margin_scaler * -1
-        m_arc = m_arc * g_angular
         theta = target_logit.acos()
-        theta_m = torch.clip(theta + m_arc, min=self.eps, max=math.pi - self.eps)
+        theta_m = torch.clip(theta + g_angular, min=self.eps, max=math.pi - self.eps)
         target_logit = theta_m.cos()
 
         # g_additive
-        m_cos = torch.zeros(labels.size()[0], device=target_logit.device)
-        m_cos.scatter_(1, labels, 1.0)
         g_add = self.m + (self.m * margin_scaler)
-        m_cos = m_cos * g_add
-        final_target_logit = target_logit - m_cos
+        final_target_logit = target_logit - g_add
 
         logits[index_positive, labels[index_positive].view(-1)] = final_target_logit
 
         # scale
         logits = logits * self.s
         return logits
+
 
 class AdaFaceLayers(torch.nn.Module):
     def __init__(
