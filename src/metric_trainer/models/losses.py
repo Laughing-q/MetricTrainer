@@ -177,6 +177,7 @@ class AdaFace(torch.nn.Module):
         # partial fc
         index_positive = torch.where(labels != -1)[0]
         target_logit = logits[index_positive, labels[index_positive].view(-1)]
+        print(logits.size(), target_logit.size())
 
         norms = torch.norm(embeddings, p=2, dim=-1, keepdim=True)
         target_logit = target_logit.clamp(-1 + self.eps, 1 - self.eps)  # for stability
@@ -198,7 +199,7 @@ class AdaFace(torch.nn.Module):
         margin_scaler = torch.clip(margin_scaler, -1, 1)
 
         # g_angular
-        m_arc = torch.zeros(labels.size()[0], target_logit.size()[1], device=target_logit.device)
+        m_arc = torch.zeros(labels.size()[0], device=target_logit.device)
         m_arc.scatter_(1, labels.reshape(-1, 1), 1.0)
         g_angular = self.m * margin_scaler * -1
         m_arc = m_arc * g_angular
@@ -207,7 +208,7 @@ class AdaFace(torch.nn.Module):
         target_logit = theta_m.cos()
 
         # g_additive
-        m_cos = torch.zeros(labels.size()[0], target_logit.size()[1], device=target_logit.device)
+        m_cos = torch.zeros(labels.size()[0], device=target_logit.device)
         m_cos.scatter_(1, labels.reshape(-1, 1), 1.0)
         g_add = self.m + (self.m * margin_scaler)
         m_cos = m_cos * g_add
