@@ -80,8 +80,8 @@ class Trainer:
         )
         self.optimizer = optim.SGD(
             params=[
-                {"params": self.model.parameters()},
-                {"params": self.loss_func.parameters()},
+                {"params": model.parameters()},
+                {"params": loss_func.parameters()},
             ],
             lr=self.cfg.SOLVER.BASE_LR,
             momentum=self.cfg.SOLVER.MOMENTUM,
@@ -104,7 +104,7 @@ class Trainer:
         self.loss_func = loss_func
         self.loss_func.train()
 
-        print(colorstr("Creating DataLoader: ") + f"{self.cfg.MODEL.LOSS}...")
+        print(colorstr("Creating DataLoader: ") + f"{self.cfg.DATASET.TYPE}...")
         self.train_loader = get_dataloader(
             self.dataset, self.is_distributed, self.batch_size, self.cfg.NUM_WORKERS
         )
@@ -115,13 +115,8 @@ class Trainer:
         total_batch_size = self.cfg.SOLVER.BATCH_SIZE_PER_GPU * get_world_size()
         # steps of one epoch
         steps = self.cfg.DATASET.NUM_IMAGES // total_batch_size
-        warmup_step = (
-            steps
-            * self.cfg.SOLVER.WARMUP_EPOCH
-        )
-        total_step = (
-            steps * self.cfg.SOLVER.NUM_EPOCH
-        )
+        warmup_step = steps * self.cfg.SOLVER.WARMUP_EPOCH
+        total_step = steps * self.cfg.SOLVER.NUM_EPOCH
         # NOTE:this lr_scheduler reduce lr by steps, not epochs
         self.lr_scheduler = PolyScheduler(
             optimizer=self.optimizer,
@@ -164,7 +159,9 @@ class Trainer:
     def after_train(self):
         self.te = time.time()
         if osp.exists(self.save_dir):
-            plot_results(file=osp.join("results.csv"))  # save results.png
+            plot_results(
+                file=osp.join(self.save_dir, "results.csv")
+            )  # save results.png
         print(
             colorstr("Train: ")
             + f"Finish training with {(self.te - self.ts) / 3600:.3f} hours..."
@@ -175,7 +172,7 @@ class Trainer:
             strip_optimizer(f)  # strip optimizers
         # TODO
         with open(osp.join(self.save_dir, "train.txt"), "a") as f:
-            f.write(f"{(self.te - self.ts) / 3600:.3f}")
+            f.write(f"Finish training with {(self.te - self.ts) / 3600:.3f} hours...")
 
     def before_epoch(self):
         if self.is_distributed:

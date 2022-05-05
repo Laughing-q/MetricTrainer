@@ -81,20 +81,21 @@ class Evalautor:
             acc, std = self.val_one_data(
                 val_data,
                 self.val_issame_list[i],
-                self.var_name_list[i],
                 model,
                 flip,
                 nfolds,
             )
             accs.append(acc)
             stds.append(std)
-            print(
-                f"[%s]Accuracy{'-Flip' if flip else ''}: %1.5f+-%1.5f"
-                % (self.var_name_list[i], acc, std)
-            )
+            pf = "%20s" + "%20s" * 1
+            print(pf % (self.var_name_list[i], '%1.5f+-%1.5f' % (acc, std)))
         return accs, stds
 
-    def val_one_data(self, val_data, issame_list, val_name, model, flip, nfolds):
+    def val_one_data(self, val_data, issame_list, model, flip, nfolds):
+        s = ("%20s" + "%20s" * 1) % (
+            f"Eval",
+            f"Accuracy{'-Flip' if flip else ''}",
+        )
         embeddings = []
         pbar = tqdm(enumerate(val_data), total=len(val_data))
         for i, imgs in pbar:
@@ -110,7 +111,7 @@ class Evalautor:
             out = normalize(out)
             embedding = out.detach().cpu().numpy()
             embeddings.append(embedding)
-            pbar.set_description("%10s" % f"eval {val_name}")
+            pbar.set_description(s)
         embeddings = np.concatenate(embeddings, axis=0)
         _, _, accuracy, _, _, _ = evaluate(embeddings, issame_list, nrof_folds=nfolds)
         acc, std = np.mean(accuracy), np.std(accuracy)

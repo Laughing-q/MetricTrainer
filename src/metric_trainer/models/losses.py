@@ -167,11 +167,11 @@ class AdaFace(torch.nn.Module):
         self.register_buffer("batch_mean", torch.ones(1) * (20))
         self.register_buffer("batch_std", torch.ones(1) * 100)
 
-        print("\n\AdaFace with the following property")
-        print("self.m", self.m)
-        print("self.h", self.h)
-        print("self.s", self.s)
-        print("self.t_alpha", self.t_alpha)
+        # print("\n\AdaFace with the following property")
+        # print("self.m", self.m)
+        # print("self.h", self.h)
+        # print("self.s", self.s)
+        # print("self.t_alpha", self.t_alpha)
 
     def forward(self, logits, label, embeddings, **kwargs):
         norms = torch.norm(embeddings, p=2, dim=-1, keepdim=True)

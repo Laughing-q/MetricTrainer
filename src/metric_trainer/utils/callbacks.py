@@ -17,7 +17,7 @@ class CallBackSaveLog(object):
             print(f"{self.save_dir} is not existed, skip!")
             return
 
-        file = osp.join(self.save_dir, "results.txt")
+        file = osp.join(self.save_dir, "results.csv")
         n = len(vals)  # number of cols
         s = (
             ""

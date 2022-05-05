@@ -1,10 +1,14 @@
 __pycache__/
 pair.txt
+runs/
 
 *.egg-info
 *.npy
-runs/
-*.yaml
 *.pth
 *.pt
+
 *.txt
+*.csv
+*.yaml
+
+*.png
