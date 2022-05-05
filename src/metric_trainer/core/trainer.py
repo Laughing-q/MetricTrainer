@@ -10,6 +10,7 @@ import torch.nn as nn
 import numpy as np
 import os.path as osp
 import os
+from loguru import logger
 from torch.nn.parallel import DistributedDataParallel as DDP
 from .evaluator import Evalautor
 from ..data.dataset import FaceTrainData, Glint360Data, get_dataloader
@@ -21,7 +22,7 @@ from ..utils.plots import plot_results
 from ..utils.general import colorstr, strip_optimizer
 from ..models.losses import build_metric
 
-# from ..utils.logger import setup_logger
+from ..utils.logger import setup_logger
 
 
 def build_dataset(data, *args, **kwargs):
@@ -60,14 +61,20 @@ class Trainer:
         self.sample_rate = cfg.MODEL.SAMPLE_RATE
 
     def before_train(self):
-        print(colorstr("Creating Model: ") + f"{self.backbone}...")
+        setup_logger(
+            self.save_dir,
+            distributed_rank=self.rank,
+            filename="train_log.txt",
+            mode="a",
+        )
+        logger.info(colorstr("Creating Model: ") + f"{self.backbone}...")
         model = create_model(
             model_name=self.backbone,
             num_classes=self.embedding_dim,
             pretrained=True,
             global_pool="avg",
         )
-        print(
+        logger.info(
             colorstr("Creating Loss Function and Optimizer: ")
             + f"{self.cfg.MODEL.LOSS}..."
         )
@@ -104,7 +111,7 @@ class Trainer:
         self.loss_func = loss_func
         self.loss_func.train()
 
-        print(colorstr("Creating DataLoader: ") + f"{self.cfg.DATASET.TYPE}...")
+        logger.info(colorstr("Creating DataLoader: ") + f"{self.cfg.DATASET.TYPE}...")
         self.train_loader = get_dataloader(
             self.dataset, self.is_distributed, self.batch_size, self.cfg.NUM_WORKERS
         )
@@ -126,7 +133,7 @@ class Trainer:
         )
         self.lr_scheduler.last_epoch = self.start_epoch * steps - 1  # do not move
 
-        print(colorstr("Creating Evalautor: ") + f"{self.cfg.DATASET.VAL_TARGETS}...")
+        logger.info(colorstr("Creating Evalautor: ") + f"{self.cfg.DATASET.VAL_TARGETS}...")
         self.evaluator = Evalautor(
             val_targets=self.cfg.DATASET.VAL_TARGETS,
             root_dir=self.cfg.DATASET.VAL,
@@ -139,16 +146,10 @@ class Trainer:
         )
 
         os.makedirs(self.save_dir, exist_ok=True)
-        # setup_logger(
-        #     self.save_dir,
-        #     distributed_rank=self.rank,
-        #     filename="train_log.txt",
-        #     mode="a",
-        # )
 
         with open(osp.join(self.save_dir, "cfg.yaml"), "w") as f:
             OmegaConf.save(self.cfg, f)
-        print(colorstr("Train: ") + "Begin training...")
+        logger.info(colorstr("Train: ") + "Begin training...")
         self.ts = time.time()
 
     def train(self):
@@ -162,7 +163,7 @@ class Trainer:
             plot_results(
                 file=osp.join(self.save_dir, "results.csv")
             )  # save results.png
-        print(
+        logger.info(
             colorstr("Train: ")
             + f"Finish training with {(self.te - self.ts) / 3600:.3f} hours..."
         )
@@ -180,7 +181,7 @@ class Trainer:
 
         # message
         s = ("\n" + "%10s" * 5) % ("Epoch", "gpu_mem", "loss", "lr", "img_size")
-        print(s)
+        logger.info(s)
         self.pbar = enumerate(self.train_loader)
         if self.rank == 0:
             self.pbar = tqdm(self.pbar, total=len(self.train_loader))
@@ -192,6 +193,8 @@ class Trainer:
             self.after_epoch()
 
     def after_epoch(self):
+        if self.rank != 0:
+            return
         with torch.no_grad():
             accs, stds = self.evaluator.val(self.model, flip=True)
 
@@ -215,8 +218,8 @@ class Trainer:
             labels = labels.cuda()
 
             embeddings = self.model(imgs)
-            # loss = self.loss_func(embeddings, labels, self.optimizer)
-            loss = self.loss_func(embeddings, labels)
+            loss = self.loss_func(embeddings, labels, self.optimizer)
+            # loss = self.loss_func(embeddings, labels)
             self.optimizer.zero_grad()
             if self.fp16:
                 self.scaler.scale(loss).backward()
@@ -273,7 +276,7 @@ class Trainer:
     def resume_train(self, model, loss):
         if self.resume_dir is None or len(self.resume_dir) == 0:
             return model, loss
-        print(colorstr("resume: ") + f"Resuming from {self.resume_dir}...")
+        logger.info(colorstr("resume: ") + f"Resuming from {self.resume_dir}...")
         model_path = osp.join(self.resume_dir, "last.pt")
         ckpt = torch.load(model_path)
         # Optimizer

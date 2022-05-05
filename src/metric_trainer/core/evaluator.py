@@ -5,6 +5,7 @@ from typing import List
 import torch
 import sklearn
 import numpy as np
+from loguru import logger
 from torch.utils.data import DataLoader
 from torch.nn.functional import normalize
 from ..utils.pair import parse_pair
@@ -61,7 +62,7 @@ class Evalautor:
         for name in val_targets:
             path = os.path.join(data_dir, name + ".bin")
             if os.path.exists(path):
-                print(f"loading val data {name}...")
+                logger.info(f"loading val data {name}...")
                 valdataset = ValBinData(path, image_size)
                 valdataloader = DataLoader(
                     dataset=valdataset,
@@ -72,7 +73,7 @@ class Evalautor:
                 self.var_data_list.append(valdataloader)
                 self.val_issame_list.append(valdataset.issame_list)
                 self.var_name_list.append(name)
-                print(f"load {len(valdataset) // 2} image pairs Done!")
+                logger.info(f"load {len(valdataset) // 2} image pairs Done!")
 
     def val(self, model, nfolds=10, flip=True):
         model = model.cuda()
