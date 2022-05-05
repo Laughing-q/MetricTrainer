@@ -173,9 +173,13 @@ class AdaFace(torch.nn.Module):
         # print("self.s", self.s)
         # print("self.t_alpha", self.t_alpha)
 
-    def forward(self, logits, label, embeddings, **kwargs):
+    def forward(self, logits, labels, embeddings, **kwargs):
+        # partial fc
+        index_positive = torch.where(labels != -1)[0]
+        target_logit = logits[index_positive, labels[index_positive].view(-1)]
+
         norms = torch.norm(embeddings, p=2, dim=-1, keepdim=True)
-        logits = logits.clamp(-1 + self.eps, 1 - self.eps)  # for stability
+        target_logits = target_logits.clamp(-1 + self.eps, 1 - self.eps)  # for stability
 
         safe_norms = torch.clip(norms, min=0.001, max=100)  # for stability
         safe_norms = safe_norms.clone().detach()
@@ -192,31 +196,28 @@ class AdaFace(torch.nn.Module):
         )  # 66% between -1, 1
         margin_scaler = margin_scaler * self.h  # 68% between -0.333 ,0.333 when h:0.333
         margin_scaler = torch.clip(margin_scaler, -1, 1)
-        # ex: m=0.5, h:0.333
-        # range
-        #       (66% range)
-        #   -1 -0.333  0.333   1  (margin_scaler)
-        # -0.5 -0.166  0.166 0.5  (m * margin_scaler)
 
         # g_angular
-        m_arc = torch.zeros(label.size()[0], logits.size()[1], device=logits.device)
-        m_arc.scatter_(1, label.reshape(-1, 1), 1.0)
+        m_arc = torch.zeros(labels.size()[0], target_logits.size()[1], device=target_logits.device)
+        m_arc.scatter_(1, labels.reshape(-1, 1), 1.0)
         g_angular = self.m * margin_scaler * -1
         m_arc = m_arc * g_angular
-        theta = logits.acos()
+        theta = target_logits.acos()
         theta_m = torch.clip(theta + m_arc, min=self.eps, max=math.pi - self.eps)
-        logits = theta_m.cos()
+        target_logits = theta_m.cos()
 
         # g_additive
-        m_cos = torch.zeros(label.size()[0], logits.size()[1], device=logits.device)
-        m_cos.scatter_(1, label.reshape(-1, 1), 1.0)
+        m_cos = torch.zeros(labels.size()[0], target_logits.size()[1], device=target_logits.device)
+        m_cos.scatter_(1, labels.reshape(-1, 1), 1.0)
         g_add = self.m + (self.m * margin_scaler)
         m_cos = m_cos * g_add
-        logits = logits - m_cos
+        final_target_logit = target_logits - m_cos
+
+        logits[index_positive, labels[index_positive].view(-1)] = final_target_logit
 
         # scale
-        scaled_cosine_m = logits * self.s
-        return scaled_cosine_m
+        logits = logits * self.s
+        return logits
 
 class AdaFaceLayers(torch.nn.Module):
     def __init__(
