@@ -55,7 +55,7 @@ class Trainer:
         self.start_epoch = 0
         self.last = osp.join(self.save_dir, "last.pt")
         self.best = osp.join(self.save_dir, "best.pt")
-        # self.partial_fc = 'partial_fc' in cfg.MODEL.LOSS
+        self.partial_fc = "partial_fc" in cfg.MODEL.LOSS
 
         # class-aware args
         self.sample_rate = cfg.MODEL.SAMPLE_RATE
@@ -133,7 +133,9 @@ class Trainer:
         )
         self.lr_scheduler.last_epoch = self.start_epoch * steps - 1  # do not move
 
-        logger.info(colorstr("Creating Evalautor: ") + f"{self.cfg.DATASET.VAL_TARGETS}...")
+        logger.info(
+            colorstr("Creating Evalautor: ") + f"{self.cfg.DATASET.VAL_TARGETS}..."
+        )
         self.evaluator = Evalautor(
             val_targets=self.cfg.DATASET.VAL_TARGETS,
             root_dir=self.cfg.DATASET.VAL,
@@ -158,6 +160,8 @@ class Trainer:
         self.after_train()
 
     def after_train(self):
+        if self.rank != 0:
+            return
         self.te = time.time()
         if osp.exists(self.save_dir):
             plot_results(
@@ -193,6 +197,7 @@ class Trainer:
             self.after_epoch()
 
     def after_epoch(self):
+        self.save_loss()
         if self.rank != 0:
             return
         with torch.no_grad():
@@ -218,8 +223,7 @@ class Trainer:
             labels = labels.cuda()
 
             embeddings = self.model(imgs)
-            loss = self.loss_func(embeddings, labels, self.optimizer)
-            # loss = self.loss_func(embeddings, labels)
+            loss = self.compute_loss(embeddings, labels)
             self.optimizer.zero_grad()
             if self.fp16:
                 self.scaler.scale(loss).backward()
@@ -255,8 +259,6 @@ class Trainer:
         )
 
     def save_ckpt(self, save_path, best=False):
-        path_pfc = osp.join(self.save_dir, "softmax_fc_gpu_{}.pt".format(self.rank))
-        torch.save(self.loss_func.state_dict(), path_pfc)
         model = (
             self.model.module
             if type(self.model)
@@ -272,6 +274,14 @@ class Trainer:
             torch.save(ckpt, save_path)
             if best:
                 torch.save(ckpt, self.best)
+
+    def save_loss(self):
+        if self.partial_fc:
+            path_pfc = osp.join(self.save_dir, "softmax_fc_gpu_{}.pt".format(self.rank))
+            torch.save(self.loss_func.state_dict(), path_pfc)
+        elif self.rank == 0:
+            path_loss = osp.join(self.save_dir, "loss_func.pt")
+            torch.save(self.loss_func.state_dict(), path_loss)
 
     def resume_train(self, model, loss):
         if self.resume_dir is None or len(self.resume_dir) == 0:
@@ -297,6 +307,11 @@ class Trainer:
         loss.load_state_dict(ckpt)
         del ckpt
         return model, loss
+
+    def compute_loss(self, embeddings, labels):
+        if self.partial_fc:
+            return self.loss_func(embeddings, labels, self.optimizer)
+        return self.loss_func(embeddings, labels)
 
     @property
     def global_iter(self):

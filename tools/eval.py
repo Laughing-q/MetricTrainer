@@ -2,6 +2,7 @@ import torch
 import os
 from typing import List
 from loguru import logger
+from tqdm import tqdm
 from metric_trainer.eval.verification import test, load_bin
 from metric_trainer.core.evaluator import Evalautor
 from timm import create_model
@@ -57,29 +58,30 @@ if __name__ == "__main__":
         pretrained=False,
         global_pool="avg",
     )
-    ckpt = torch.load("runs/model.pt")
+    ckpt = torch.load("runs/AdaFace/best.pt")
     model.load_state_dict(ckpt["model"])
     model.cuda()
     model.eval()
 
     # img = torch.rand((1, 3, 112, 112), dtype=torch.float32).cuda()
     # time = Timer(start=True, round=2, unit="ms")
-    # for i in range(100):
+    # for i in tqdm(range(100), total=100):
     #     model(img)
     # print(f"average inference time: {time.since_start() / 100}ms")
     # exit()
     testor = Evalautor(
         val_targets=["lfw", "cfp_fp", "agedb_30", "calfw", "cplfw", "vgg2_fp"],
         root_dir="/dataset/dataset/glint360k/glint360k",
-        batch_size=16,
+        batch_size=32,
     )
-    testor.val(model, flip=False)
+    with torch.no_grad():
+        testor.val(model, flip=True)
 
     # no flip: 0.99617
     # flip: 
 
     # callback_verification = CallBackVerification(
-    #     val_targets=["lfw", "cfp_fp", "agedb_30", "calfw", "cplfw", "vgg2_fp"],
+    #     val_targets=["cfp_fp"],
     #     rec_prefix="/dataset/dataset/glint360k/glint360k",
     # )
     # callback_verification(model)

@@ -9,7 +9,7 @@ DATASET:
   TYPE: 'folder'  # 'folder'
   TRAIN: '/dataset/dataset/face_test/'
   VAL: '/dataset/dataset/glint360k/glint360k'
-  VAL_TARGETS: ['lfw', 'cfp_fp']
+  VAL_TARGETS: ['cfp_fp']
   TEST: ''
   IMG_SIZE: 112
   NUM_IMAGES: 17091657

@@ -76,7 +76,8 @@ class Evalautor:
                 logger.info(f"load {len(valdataset) // 2} image pairs Done!")
 
     def val(self, model, nfolds=10, flip=True):
-        model = model.cuda()
+        model.eval()
+        model.cuda()
         accs, stds = [], []
         for i, val_data in enumerate(self.var_data_list):
             acc, std = self.val_one_data(

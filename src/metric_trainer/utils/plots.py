@@ -21,7 +21,7 @@ def plot_results(file="path/to/results.csv", dir="", best=True):
     for _, f in enumerate(files):
         # try:
             data = pd.read_csv(f)
-            index = np.argmax(data.values[:, 3:-1].mean(-1))
+            index = np.argmax(data.values[:, 4:-1].mean(-1))
             s = [x.strip() for x in data.columns]
             nr = len(data.values[0])
             x = data.values[:, 0]
@@ -55,4 +55,4 @@ def plot_results(file="path/to/results.csv", dir="", best=True):
     plt.close()
 
 if __name__ == "__main__":
-    plot_results(file='/home/laughing/code/MetricTrainer/test/results.csv')
+    plot_results(file='/home/laughing/code/MetricTrainer/runs/AdaFace/results.csv')
