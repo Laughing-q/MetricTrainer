@@ -180,6 +180,7 @@ class Trainer:
             f.write(f"Finish training with {(self.te - self.ts) / 3600:.3f} hours...")
 
     def before_epoch(self):
+        self.model.train()
         if self.is_distributed:
             self.train_loader.sampler.set_epoch(self.epoch)
 
@@ -200,6 +201,7 @@ class Trainer:
         self.save_loss()
         if self.rank != 0:
             return
+        self.model.eval()
         with torch.no_grad():
             accs, stds = self.evaluator.val(self.model, flip=True)
 
