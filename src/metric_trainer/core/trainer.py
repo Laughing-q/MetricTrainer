@@ -50,7 +50,9 @@ class Trainer:
         self.img_size = cfg.DATASET.IMG_SIZE
         self.resume_dir = cfg.get("RESUME_DIR", None)
 
-        self.dataset = build_dataset(cfg.DATASET.TYPE, cfg.DATASET.TRAIN, self.img_size)
+        self.dataset = build_dataset(
+            cfg.DATASET.TYPE, cfg.DATASET.TRAIN, cfg.DATASET.TRANSFORM, self.img_size
+        )
         self.best_fitness = 0
         self.start_epoch = 0
         self.last = osp.join(self.save_dir, "last.pt")

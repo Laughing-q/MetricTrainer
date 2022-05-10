@@ -58,7 +58,7 @@ if __name__ == "__main__":
         pretrained=False,
         global_pool="avg",
     )
-    ckpt = torch.load("runs/AdaFace/best.pt")
+    ckpt = torch.load("runs/CosFace-50/last.pt")
     model.load_state_dict(ckpt["model"])
     model.cuda()
     model.eval()

@@ -44,7 +44,7 @@ def get_dataloader(dataset, is_dist, batch_size, workers):
 class FaceTrainData(Dataset):
     """Read training data from folders"""
 
-    def __init__(self, img_root, img_size=112, rgb=True) -> None:
+    def __init__(self, img_root, transform, img_size=112, rgb=True) -> None:
         self.img_files = glob.glob(osp.join(img_root, "*", "*"), recursive=True)
         self.label_list = os.listdir(img_root)
         self.img_size = img_size
@@ -56,11 +56,11 @@ class FaceTrainData(Dataset):
                     height=self.img_size,
                     scale=(0.85, 1),
                     ratio=(1, 1),
-                    p=0.5,
+                    p=transform.RandomResizedCrop,
                 ),
-                A.HorizontalFlip(p=0.5),
+                A.HorizontalFlip(p=transform.HorizontalFlip),
                 # A.VerticalFlip(p=0.5),
-                A.RandomBrightnessContrast(p=0.5),
+                A.RandomBrightnessContrast(p=transform.RandomBrightnessContrast),
             ]
         )
         self.labels = [

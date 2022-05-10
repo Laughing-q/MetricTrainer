@@ -13,6 +13,10 @@ DATASET:
   TEST: ''
   IMG_SIZE: 112
   NUM_IMAGES: 17091657
+  TRANSFORM:
+    RandomResizedCrop: 0.5
+    HorizontalFlip: 0.5
+    RandomBrightnessContrast: 0.5
 
 SOLVER:
   OPTIM: 'sgd'
