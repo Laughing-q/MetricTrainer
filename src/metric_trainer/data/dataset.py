@@ -128,7 +128,7 @@ class FaceValData(Dataset):
 class Glint360Data(Dataset):
     """Read training data from glint360k"""
 
-    def __init__(self, root_dir, img_size=112, rgb=True):
+    def __init__(self, root_dir, transform, img_size=112, rgb=True):
         self.img_size = img_size
         self.rgb = rgb
         self.transform = A.Compose(
@@ -138,11 +138,11 @@ class Glint360Data(Dataset):
                     height=self.img_size,
                     scale=(0.85, 1),
                     ratio=(1, 1),
-                    p=0.5,
+                    p=transform.RandomResizedCrop,
                 ),
-                A.HorizontalFlip(p=0.5),
+                A.HorizontalFlip(p=transform.HorizontalFlip),
                 # A.VerticalFlip(p=0.5),
-                A.RandomBrightnessContrast(p=0.5),
+                A.RandomBrightnessContrast(p=transform.RandomBrightnessContrast),
             ]
         )
         self.root_dir = root_dir

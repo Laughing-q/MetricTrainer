@@ -272,6 +272,7 @@ class Trainer:
         ckpt = {
             "epoch": self.epoch,
             "model": model.state_dict(),
+            "best_fitness": self.best_fitness,
             "optimizer": self.optimizer.state_dict(),
         }
         if self.rank == 0:
