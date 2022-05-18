@@ -1,64 +1,56 @@
 import torch
-import os
-from typing import List
-from loguru import logger
-from tqdm import tqdm
-from metric_trainer.eval.verification import test, load_bin
 from metric_trainer.core.evaluator import Evalautor
 from timm import create_model
 from lqcv.utils.timer import Timer
+from omegaconf import OmegaConf
+import argparse
 
 
-class CallBackVerification(object):
-    def __init__(self, val_targets, rec_prefix, image_size=(112, 112)):
-        self.highest_acc: float = 0.0
-        self.highest_acc_list: List[float] = [0.0] * len(val_targets)
-        self.ver_list: List[object] = []
-        self.ver_name_list: List[str] = []
-        self.init_dataset(
-            val_targets=val_targets, data_dir=rec_prefix, image_size=image_size
-        )
-
-    def ver_test(self, backbone: torch.nn.Module):
-        results = []
-        for i in range(len(self.ver_list)):
-            acc1, std1, acc2, std2, xnorm, embeddings_list = test(
-                self.ver_list[i], backbone, 10, 10
-            )
-            logger.info("[%s]XNorm: %f" % (self.ver_name_list[i], xnorm))
-            logger.info(
-                "[%s]Accuracy-Flip: %1.5f+-%1.5f" % (self.ver_name_list[i], acc2, std2)
-            )
-
-            if acc2 > self.highest_acc_list[i]:
-                self.highest_acc_list[i] = acc2
-            logger.info(
-                "[%s]Accuracy-Highest: %1.5f"
-                % (self.ver_name_list[i], self.highest_acc_list[i])
-            )
-            results.append(acc2)
-
-    def init_dataset(self, val_targets, data_dir, image_size):
-        for name in val_targets:
-            path = os.path.join(data_dir, name + ".bin")
-            if os.path.exists(path):
-                data_set = load_bin(path, image_size)
-                self.ver_list.append(data_set)
-                self.ver_name_list.append(name)
-
-    def __call__(self, backbone: torch.nn.Module):
-        backbone.eval()
-        self.ver_test(backbone)
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default="./configs/partial_glint360k.yaml",
+        help="config file",
+    )
+    parser.add_argument(
+        "-d",
+        "--data",
+        type=str,
+        default="",
+        help="val data path, if the argument is empty, then eval the val data from config",
+    )
+    parser.add_argument(
+        "-b",
+        "--batch-size",
+        type=int,
+        default=32,
+        help="batch size",
+    )
+    parser.add_argument(
+        "-w",
+        "--weight",
+        type=str,
+        default="",
+        help="weight path",
+    )
+    opt = parser.parse_args()
+    return opt
 
 
 if __name__ == "__main__":
+    opt = parse_opt()
+    cfg = OmegaConf.load(opt.config)
+
     model = create_model(
-        model_name="cspresnet50",
-        num_classes=512,
+        model_name=cfg.MODEL.BACKBONE,
+        num_classes=cfg.MODEL.EMBEDDING_DIM,
         pretrained=False,
         global_pool="avg",
     )
-    ckpt = torch.load("runs/CosFace-50/last.pt")
+    ckpt = torch.load(opt.weight)
     model.load_state_dict(ckpt["model"])
     model.cuda()
     model.eval()
@@ -71,25 +63,8 @@ if __name__ == "__main__":
     # exit()
     testor = Evalautor(
         val_targets=["lfw", "cfp_fp", "agedb_30", "calfw", "cplfw", "vgg2_fp"],
-        root_dir="/dataset/dataset/glint360k/glint360k",
-        batch_size=32,
+        root_dir=opt.data,
+        batch_size=opt.batch_size,
     )
     with torch.no_grad():
         testor.val(model, flip=True)
-
-    # no flip: 0.99617
-    # flip: 
-
-    # callback_verification = CallBackVerification(
-    #     val_targets=["cfp_fp"],
-    #     rec_prefix="/dataset/dataset/glint360k/glint360k",
-    # )
-    # callback_verification(model)
-
-    # 0.338233, 0.99717
-    # LFW: 0.99800, 29s
-    # cfp_fp: 0.98186, 34s
-    # agedb_30: 0.97983, 29s
-    # calfw: 0.96017, 29s
-    # cplfw: 0.94017, 29s
-    # vgg2_fp: 0.95160, 24s

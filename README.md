@@ -14,6 +14,7 @@
 - [ ] support other optimizer
 - [ ] support other scheduler
 - [ ] ema
+- [ ] inference
 
 
 ## Quick Start
@@ -26,10 +27,43 @@ Clone repo and install [requirements.txt](https://github.com/Laughing-q/yolov5-q
 
 ```shell
 pip install timm pytorch-metric-learning
+pip install git+https://github.com/Laughing-q/lqcv.git
 git clone https://github.com/Laughing-q/MetricTrainer.git
 cd MetricTrainer
 pip install -r requirements.txt
 pip install -e .
+```
+
+</details>
+
+<details open>
+<summary>Training</summary>
+
+- Prepare your own config, see `configs/` for more details.
+- `partial fc` rely on `DDP` mode, so if you get only one GPU, just set `n=1`.
+- Multi GPU(DDP)
+```shell
+python -m torch.distributed.run --nproc_per_node=n tools/train.py -c configs/test.yaml
+```
+</details>
+
+<details open>
+<summary>Eval</summary>
+
+- prepare your val datasets like below(you can get the datasets from [insightface](https://github.com/deepinsight/insightface.git)):
+```plain
+├── root_dir
+│   ├── lfw.bin
+│   ├── cfp_fp.bin
+│   ├── agedb_30.bin
+│   ├── calfw.bin
+│   ├── cplfw.bin
+│   ├── vgg2_fp.bin
+```
+
+```shell
+python tools/eval.py -c configs/partial_glint360k.yaml -d root_dir \
+    -w runs/CosFace_noaug/best.pt
 ```
 
 </details>

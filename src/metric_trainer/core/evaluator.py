@@ -73,7 +73,9 @@ class Evalautor:
                 self.var_data_list.append(valdataloader)
                 self.val_issame_list.append(valdataset.issame_list)
                 self.var_name_list.append(name)
-                logger.info(f"load {len(valdataset) // 2} image pairs Done!")
+                logger.info(f"load {name}: {len(valdataset) // 2} image pairs Done!")
+            else:
+                logger.info(f"Not found {name}!")
 
     def val(self, model, nfolds=10, flip=True):
         model.cuda()
