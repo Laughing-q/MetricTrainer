@@ -6,16 +6,15 @@ import pickle
 import numpy as np
 import glob
 import mxnet as mx
+from PIL import Image
 from torch.utils.data import Dataset
 from pathlib import Path
 import albumentations as A
 import cv2
-from tqdm import tqdm
-from mxnet import ndarray as nd
 from torch.utils.data import distributed
 from torch.utils.data.sampler import RandomSampler
 from torch.utils.data import DataLoader
-from ..utils.dist import get_world_size
+from metric_trainer.utils.dist import get_world_size
 
 
 def get_dataloader(dataset, is_dist, batch_size, workers):
@@ -128,7 +127,7 @@ class FaceValData(Dataset):
 class Glint360Data(Dataset):
     """Read training data from glint360k"""
 
-    def __init__(self, root_dir, transform, img_size=112, rgb=True):
+    def __init__(self, root_dir, transform=None, img_size=112, rgb=False):
         self.img_size = img_size
         self.rgb = rgb
         self.transform = A.Compose(
@@ -144,7 +143,7 @@ class Glint360Data(Dataset):
                 # A.VerticalFlip(p=0.5),
                 A.RandomBrightnessContrast(p=transform.RandomBrightnessContrast),
             ]
-        )
+        ) if transform is not None else None
         self.root_dir = root_dir
         path_imgrec = os.path.join(root_dir, "train.rec")
         path_imgidx = os.path.join(root_dir, "train.idx")
@@ -171,8 +170,9 @@ class Glint360Data(Dataset):
         label = header.label
         if not isinstance(label, numbers.Number):
             label = label[0]
-        sample = mx.image.imdecode(img).asnumpy()
-        img = self.transform(image=sample)["image"]
+        img = mx.image.imdecode(img).asnumpy()
+        if self.transform is not None:
+            img = self.transform(image=img)["image"]
 
         img = img.transpose(2, 0, 1)
         if self.rgb:
@@ -203,7 +203,7 @@ class ValBinData(Dataset):
         rgb: swap `bgr` channels to `rgb` if True.
     """
 
-    def __init__(self, bin_file, img_size=112, rgb=True) -> None:
+    def __init__(self, bin_file, img_size=112, rgb=False) -> None:
         super().__init__()
         try:
             with open(bin_file, "rb") as f:
@@ -226,16 +226,29 @@ class ValBinData(Dataset):
             img = img[..., ::-1]
         img = img.transpose(2, 0, 1)
         img = np.ascontiguousarray(img)
-        return torch.from_numpy(img)
+        img = torch.from_numpy(img)
+
+        return img
 
 
 if __name__ == "__main__":
     # data = FaceTrainData(img_root='/dataset/dataset/face_test')
-    data = Glint360Data(root_dir="/dataset/dataset/glint360k/glint360k")
-    for d in data:
-        img, label = d
+    # data = Glint360Data(root_dir="/dataset/dataset/glint360k/glint360k")
+    # for d in data:
+    #     img, label = d
+    #     img2 = Image.fromarray(img)
+    #     img2.show()
+    #     print(img.shape)
+    #     print(label)
+    #     cv2.imshow("p", img)
+    #     if cv2.waitKey(0) == ord("q"):
+    #         break
+
+    data = ValBinData(bin_file="/dataset/dataset/glint360k/glint360k/lfw.bin")
+    for img in data:
+        img2 = Image.fromarray(img)
+        img2.show()
         print(img.shape)
-        print(label)
-        cv2.imshow("p", img[:, :, ::-1])
+        cv2.imshow("p", img)
         if cv2.waitKey(0) == ord("q"):
             break
