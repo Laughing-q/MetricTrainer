@@ -6,6 +6,7 @@ runs/
 *.npy
 *.pth
 *.pt
+*.onnx
 
 *.txt
 *.csv

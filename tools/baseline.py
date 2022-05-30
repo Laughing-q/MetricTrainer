@@ -1,4 +1,4 @@
-from metric_trainer.models.model import Backbone
+from metric_trainer.models.baseline_model import Backbone
 import torch
 import os
 from typing import List

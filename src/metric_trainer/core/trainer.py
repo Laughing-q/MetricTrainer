@@ -20,7 +20,7 @@ from ..utils.dist import get_world_size, get_rank
 from ..utils.metric import AverageMeter
 from ..utils.plots import plot_results
 from ..utils.general import colorstr, strip_optimizer
-from ..models.losses import build_metric
+from ..models import build_metric, build_model
 
 from ..utils.logger import setup_logger
 
@@ -70,12 +70,7 @@ class Trainer:
             mode="a",
         )
         logger.info(colorstr("Creating Model: ") + f"{self.backbone}...")
-        model = create_model(
-            model_name=self.backbone,
-            num_classes=self.embedding_dim,
-            pretrained=True,
-            global_pool="avg",
-        )
+        model = build_model(self.cfg.MODEL)
         logger.info(
             colorstr("Creating Loss Function and Optimizer: ")
             + f"{self.cfg.MODEL.LOSS}..."

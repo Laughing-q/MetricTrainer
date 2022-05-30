@@ -27,10 +27,10 @@ def build_metric(name, embedding_dim, num_class, sample_rate, fp16):
             margin_loss = CombinedMarginLoss(
                 64,
                 1.0,
-                # 0.0,
-                # 0.4,
-                0.5, 
                 0.0,
+                0.4,
+                # 0.5, 
+                # 0.0,
             )
         loss_func = PartialFC(
             margin_loss,

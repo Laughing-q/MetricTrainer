@@ -1,7 +1,10 @@
 MODEL:
-  BACKBONE: 'cspresnet50'
-  LOSS: 'circleloss'
+  BACKBONE: 'convnext_base_in22ft1k'
+  ACT_LAYER: 'silu'
+  NORM_LAYER: 'bn'
+  POOLING: False
   EMBEDDING_DIM: 512
+  LOSS: 'circleloss'
   NUM_CLASS: 360232
   SAMPLE_RATE: 0.1
 
