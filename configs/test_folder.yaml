@@ -1,5 +1,6 @@
 MODEL:
-  BACKBONE: 'convnext_base_in22ft1k'
+  # BACKBONE: 'convnext_base_in22ft1k'
+  BACKBONE: 'convnext_tiny_hnf'
   ACT_LAYER: 'silu'
   NORM_LAYER: 'bn'
   POOLING: False

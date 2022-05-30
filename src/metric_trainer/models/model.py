@@ -19,7 +19,9 @@ def build_model(cfg):
         # head_norm_first=True,
         exportable=True,
     )
-    if "convnext" in cfg.BACKBONE:
+    if "convnext" in cfg.BACKBONE and (
+        "nano" not in cfg.BACKBONE and "tiny" not in cfg.BACKBONE
+    ):
         backbone = Backbone(conv_mlp=True)
     else:
         backbone = Backbone()
