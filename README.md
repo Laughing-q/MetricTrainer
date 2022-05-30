@@ -26,8 +26,9 @@ Clone repo and install [requirements.txt](https://github.com/Laughing-q/yolov5-q
 **Python>=3.7.0** environment, including**PyTorch>=1.7.1**.
 
 ```shell
-pip install timm pytorch-metric-learning
+pip install pytorch-metric-learning
 pip install git+https://github.com/Laughing-q/lqcv.git
+pip install git+https://github.com/Laughing-q/pytorch-image-models.git
 git clone https://github.com/Laughing-q/MetricTrainer.git
 cd MetricTrainer
 pip install -r requirements.txt
