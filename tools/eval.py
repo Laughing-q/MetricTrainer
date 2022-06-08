@@ -1,5 +1,6 @@
 import torch
 from metric_trainer.core.evaluator import Evalautor
+from metric_trainer.models import build_model
 from timm import create_model
 from lqcv.utils.timer import Timer
 from omegaconf import OmegaConf
@@ -44,12 +45,7 @@ if __name__ == "__main__":
     opt = parse_opt()
     cfg = OmegaConf.load(opt.config)
 
-    model = create_model(
-        model_name=cfg.MODEL.BACKBONE,
-        num_classes=cfg.MODEL.EMBEDDING_DIM,
-        pretrained=False,
-        global_pool="avg",
-    )
+    model = build_model(cfg.MODEL)
     ckpt = torch.load(opt.weight)
     model.load_state_dict(ckpt["model"])
     model.cuda()
