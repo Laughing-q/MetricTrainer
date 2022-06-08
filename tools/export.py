@@ -1,7 +1,7 @@
-import timm
 import torch
-from torch import nn
-from pprint import pprint
+from omegaconf import OmegaConf
+from metric_trainer.models import build_model
+import argparse
 
 
 def torch2Onnx(model, dynamic=False):
@@ -31,23 +31,37 @@ def torch2Onnx(model, dynamic=False):
     )
 
 
-# model_names = timm.list_models(pretrained=True)
-# pprint(model_names)
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default="./configs/test.yaml",
+        help="config file",
+    )
+    parser.add_argument(
+        "--dynamic",
+        action="store_true",
+        help="image dir or image file",
+    )
+    parser.add_argument(
+        "-w",
+        "--weight",
+        type=str,
+        default="",
+        help="weight path",
+    )
+    opt = parser.parse_args()
+    return opt
 
-img = torch.randn((1, 3, 224, 224))
-model = timm.create_model(
-    model_name="convnext_base_in22ft1k",
-    exportable=True,
-    num_classes=0,
-    pretrained=True,
-    global_pool="",
-    norm_layer=nn.BatchNorm2d,
-    conv_mlp=True,
-    # head_norm_first=True,
-    act_layer=nn.SiLU,
-)
-print(model.num_features)
-model.eval()
-output = model(img)
-print(output.shape)
-# torch2Onnx(model)
+if __name__ == "__main__":
+    opt = parse_opt()
+    cfg = OmegaConf.load(opt.config)
+
+    model = build_model(cfg.MODEL)
+    ckpt = torch.load(opt.weight, map_location="cpu")
+    model.load_state_dict(ckpt["model"])
+    model.eval()
+
+    torch2Onnx(model, dynamic=opt.dynamic)
