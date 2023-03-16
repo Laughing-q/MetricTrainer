@@ -170,6 +170,7 @@ class Glint360Data(Dataset):
         label = header.label
         if not isinstance(label, numbers.Number):
             label = label[0]
+        # NOTE: the original image from train.rec of glint360k is `RGB` format
         img = mx.image.imdecode(img).asnumpy()
         if self.transform is not None:
             img = self.transform(image=img)["image"]
@@ -221,6 +222,7 @@ class ValBinData(Dataset):
         img = mx.image.imdecode(self.bins[index])
         if img.shape[1] != self.img_size:
             img = mx.image.resize_short(img, self.img_size)
+        # NOTE: the original image from *.bin files in glint360k is `RGB` format
         img = img.asnumpy()
         if self.rgb:
             img = img[..., ::-1]
@@ -233,7 +235,7 @@ class ValBinData(Dataset):
 
 if __name__ == "__main__":
     # data = FaceTrainData(img_root='/dataset/dataset/face_test')
-    # data = Glint360Data(root_dir="/dataset/dataset/glint360k/glint360k")
+    # data = Glint360Data(root_dir="/d/dataset/face/glint360k")
     # for d in data:
     #     img, label = d
     #     img2 = Image.fromarray(img)
@@ -244,7 +246,7 @@ if __name__ == "__main__":
     #     if cv2.waitKey(0) == ord("q"):
     #         break
 
-    data = ValBinData(bin_file="/dataset/dataset/glint360k/glint360k/lfw.bin")
+    data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
     for img in data:
         img2 = Image.fromarray(img)
         img2.show()
