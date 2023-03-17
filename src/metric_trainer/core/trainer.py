@@ -1,4 +1,3 @@
-from timm import create_model
 from tqdm import tqdm
 from torch import optim
 from omegaconf import OmegaConf
@@ -16,7 +15,7 @@ from .evaluator import Evalautor
 from ..data.dataset import FaceTrainData, Glint360Data, get_dataloader
 from ..utils.callbacks import CallBackSaveLog
 from ..utils.lr_scheduler import PolyScheduler
-from ..utils.dist import get_world_size, get_rank
+from ..utils.dist import get_world_size, get_rank, torch_distributed_zero_first
 from ..utils.metric import AverageMeter
 from ..utils.plots import plot_results
 from ..utils.general import colorstr, strip_optimizer
@@ -50,9 +49,10 @@ class Trainer:
         self.img_size = cfg.DATASET.IMG_SIZE
         self.resume_dir = cfg.get("RESUME_DIR", None)
 
-        self.dataset = build_dataset(
-            cfg.DATASET.TYPE, cfg.DATASET.TRAIN, cfg.DATASET.TRANSFORM, self.img_size
-        )
+        with torch_distributed_zero_first(self.rank):
+            self.dataset = build_dataset(
+                cfg.DATASET.TYPE, cfg.DATASET.TRAIN, cfg.DATASET.TRANSFORM, self.img_size
+            )
         self.best_fitness = 0
         self.start_epoch = 0
         self.last = osp.join(self.save_dir, "last.pt")
