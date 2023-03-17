@@ -20,7 +20,7 @@ from ..utils.dist import get_world_size, get_rank
 from ..utils.metric import AverageMeter
 from ..utils.plots import plot_results
 from ..utils.general import colorstr, strip_optimizer
-from ..models import build_metric, build_model
+from ..models import build_loss, build_model
 
 from ..utils.logger import setup_logger
 
@@ -75,7 +75,7 @@ class Trainer:
             colorstr("Creating Loss Function and Optimizer: ")
             + f"{self.cfg.MODEL.LOSS}..."
         )
-        loss_func = build_metric(
+        loss = build_loss(
             self.cfg.MODEL.LOSS,
             self.embedding_dim,
             self.num_classes,
@@ -85,15 +85,15 @@ class Trainer:
         self.optimizer = optim.SGD(
             params=[
                 {"params": model.parameters()},
-                {"params": loss_func.parameters()},
+                {"params": loss.parameters()},
             ],
             lr=self.cfg.SOLVER.BASE_LR,
             momentum=self.cfg.SOLVER.MOMENTUM,
             weight_decay=self.cfg.SOLVER.WEIGHT_DECAY,
         )
-        model, loss_func = self.resume_train(model, loss_func)
+        model, loss = self.resume_train(model, loss)
         model = model.cuda()
-        loss_func = loss_func.cuda()
+        loss = loss.cuda()
         if self.is_distributed:
             model = DDP(
                 model,
@@ -105,8 +105,8 @@ class Trainer:
             model._set_static_graph()
         self.model = model
         self.model.train()
-        self.loss_func = loss_func
-        self.loss_func.train()
+        self.loss = loss
+        self.loss.train()
 
         logger.info(colorstr("Creating DataLoader: ") + f"{self.cfg.DATASET.TYPE}...")
         self.train_loader = get_dataloader(
@@ -278,10 +278,10 @@ class Trainer:
     def save_loss(self):
         if self.partial_fc:
             path_pfc = osp.join(self.save_dir, "softmax_fc_gpu_{}.pt".format(self.rank))
-            torch.save(self.loss_func.state_dict(), path_pfc)
+            torch.save(self.loss.state_dict(), path_pfc)
         elif self.rank == 0:
-            path_loss = osp.join(self.save_dir, "loss_func.pt")
-            torch.save(self.loss_func.state_dict(), path_loss)
+            path_loss = osp.join(self.save_dir, "loss.pt")
+            torch.save(self.loss.state_dict(), path_loss)
 
     def resume_train(self, model, loss):
         if self.resume_dir is None or len(self.resume_dir) == 0:
@@ -310,8 +310,8 @@ class Trainer:
 
     def compute_loss(self, embeddings, labels):
         if self.partial_fc:
-            return self.loss_func(embeddings, labels, self.optimizer)
-        return self.loss_func(embeddings, labels)
+            return self.loss(embeddings, labels, self.optimizer)
+        return self.loss(embeddings, labels)
 
     @property
     def global_iter(self):

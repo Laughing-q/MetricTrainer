@@ -10,7 +10,7 @@ def l2_norm(input, axis=1):
     return output
 
 
-def build_metric(name, embedding_dim, num_class, sample_rate, fp16):
+def build_loss(name, embedding_dim, num_class, sample_rate, fp16):
     # reducer = reducers.MeanReducer()
     # if name == "arcface":
     #     loss_func = losses.ArcFaceLoss(
