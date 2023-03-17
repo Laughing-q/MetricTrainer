@@ -1,12 +1,12 @@
 MODEL:
-  BACKBONE: 'convnext_base_in22ft1k'
+  BACKBONE: 'cspresnext50'   # convnext_base_in22ft1k
   ACT_LAYER: 'silu'
   NORM_LAYER: 'bn'    # bn is not compatible with convnext
   POOLING: False
   EMBEDDING_DIM: 512
   LOSS: 'partial_fc'
   NUM_CLASS: 360232
-  SAMPLE_RATE: 0.1
+  SAMPLE_RATE: 0.2
 
 DATASET:
   TYPE: 'glint360k'  # 'folder'
@@ -19,7 +19,7 @@ DATASET:
   TRANSFORM:
     RandomResizedCrop: 0.5
     HorizontalFlip: 0.5
-    RandomBrightnessContrast: 0.5
+    RandomBrightnessContrast: 0.0
 
 SOLVER:
   OPTIM: 'sgd'
