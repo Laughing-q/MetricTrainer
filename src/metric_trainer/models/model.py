@@ -14,7 +14,7 @@ def build_model(cfg):
         num_classes=0,
         global_pool="avg" if cfg.POOLING else "",
         pretrained=True,
-        norm_layer=norm_layer,
+        # norm_layer=norm_layer,
         act_layer=act_layer,
         # head_norm_first=True,
         exportable=True,
