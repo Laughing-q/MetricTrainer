@@ -1,7 +1,7 @@
 MODEL:
   BACKBONE: 'convnext_base_in22ft1k'
   ACT_LAYER: 'silu'
-  NORM_LAYER: 'bn'
+  NORM_LAYER: 'bn'    # bn is not compatible with convnext
   POOLING: False
   EMBEDDING_DIM: 512
   LOSS: 'partial_fc'
