@@ -13,9 +13,9 @@ def build_model(cfg):
         model_name=cfg.BACKBONE,
         num_classes=0,
         global_pool="avg" if cfg.POOLING else "",
-        pretrained=True,
-        # norm_layer=norm_layer,
-        act_layer=act_layer,
+        pretrained=cfg.PRETRAINED,
+        # norm_layer=norm_layer,  # cspnet does not support norm_layer and act_layer
+        # act_layer=act_layer,
         # head_norm_first=True,
         exportable=True,
     )
@@ -37,11 +37,11 @@ def build_model(cfg):
 class FaceModel(nn.Module):
     def __init__(self, backbone, num_features=512, drop_ratio=0.0, pool=False) -> None:
         super().__init__()
-        self.fc_scale = 1 if pool else 3 * 3
+        self.fc_scale = 1 if pool else 4 * 4
         self.channels = backbone.num_features
         self.num_features = num_features
 
-        # output N, C, 3, 3
+        # output N, C, 4, 4 from (112, 112)
         self.backbone = backbone
         self.output_layer = nn.Sequential(
             nn.BatchNorm2d(self.channels),

@@ -1,6 +1,7 @@
 MODEL:
-  BACKBONE: 'cspresnext50'   # convnext_base_in22ft1k
-  ACT_LAYER: 'silu'
+  BACKBONE: 'cs3darknet_l'   # convnext_base_in22ft1k
+  PRETRAINED: True
+  ACT_LAYER: 'silu'   # cspnet does not support norm_layer and act_layer
   NORM_LAYER: 'bn'    # bn is not compatible with convnext
   POOLING: False
   EMBEDDING_DIM: 512
