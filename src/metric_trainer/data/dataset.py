@@ -13,11 +13,12 @@ import albumentations as A
 import cv2
 from torch.utils.data import distributed
 from torch.utils.data.sampler import RandomSampler
-from torch.utils.data import DataLoader
+# from torch.utils.data import DataLoader
+from .dataloader import DataLoaderX
 from metric_trainer.utils.dist import get_world_size
 
 
-def get_dataloader(dataset, is_dist, batch_size, workers):
+def get_dataloader(dataset, is_dist, batch_size, workers, rank):
     sampler = (
         distributed.DistributedSampler(dataset, shuffle=True)
         if is_dist
@@ -30,12 +31,14 @@ def get_dataloader(dataset, is_dist, batch_size, workers):
             workers,
         ]
     )  # number of workers
-    data_loader = DataLoader(
+    data_loader = DataLoaderX(
         dataset=dataset,
         batch_size=batch_size,
         sampler=sampler,
         num_workers=nw,
         drop_last=True,
+        pin_memory=True,
+        local_rank=rank
     )
     return data_loader
 

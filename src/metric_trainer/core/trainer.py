@@ -110,7 +110,7 @@ class Trainer:
 
         logger.info(colorstr("Creating DataLoader: ") + f"{self.cfg.DATASET.TYPE}...")
         self.train_loader = get_dataloader(
-            self.dataset, self.is_distributed, self.batch_size, self.cfg.NUM_WORKERS
+            self.dataset, self.is_distributed, self.batch_size, self.cfg.NUM_WORKERS, rank=self.rank
         )
         self.max_iter = len(self.train_loader)
 
