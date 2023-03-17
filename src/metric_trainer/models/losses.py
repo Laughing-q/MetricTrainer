@@ -1,6 +1,6 @@
 import torch
 import math
-from pytorch_metric_learning import losses, reducers
+# from pytorch_metric_learning import losses, reducers
 from .partial_fc import PartialFC
 
 
@@ -11,34 +11,34 @@ def l2_norm(input, axis=1):
 
 
 def build_metric(name, embedding_dim, num_class, sample_rate, fp16):
-    reducer = reducers.MeanReducer()
-    if name == "arcface":
-        loss_func = losses.ArcFaceLoss(
-            num_classes=num_class, embedding_size=embedding_dim, reducer=reducer
+    # reducer = reducers.MeanReducer()
+    # if name == "arcface":
+    #     loss_func = losses.ArcFaceLoss(
+    #         num_classes=num_class, embedding_size=embedding_dim, reducer=reducer
+    #     )
+    # elif name == "circleloss":
+    #     loss_func = losses.CircleLoss(m=0.25, gamma=256, reducer=reducer)
+    # elif name == "tripletloss":
+    #     loss_func = losses.TripletMarginLoss(reducer=reducer)
+    # elif "partial_fc" in name:
+    if "adaface" in name:
+        margin_loss = AdaFace()
+    else:
+        margin_loss = CombinedMarginLoss(
+            64,
+            1.0,
+            0.0,
+            0.4,
+            # 0.5, 
+            # 0.0,
         )
-    elif name == "circleloss":
-        loss_func = losses.CircleLoss(m=0.25, gamma=256, reducer=reducer)
-    elif name == "tripletloss":
-        loss_func = losses.TripletMarginLoss(reducer=reducer)
-    elif "partial_fc" in name:
-        if "adaface" in name:
-            margin_loss = AdaFace()
-        else:
-            margin_loss = CombinedMarginLoss(
-                64,
-                1.0,
-                0.0,
-                0.4,
-                # 0.5, 
-                # 0.0,
-            )
-        loss_func = PartialFC(
-            margin_loss,
-            embedding_dim,
-            num_class,
-            sample_rate,
-            fp16,
-        )
+    loss_func = PartialFC(
+        margin_loss,
+        embedding_dim,
+        num_class,
+        sample_rate,
+        fp16,
+    )
     return loss_func
 
 
