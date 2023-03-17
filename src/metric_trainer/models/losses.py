@@ -24,6 +24,7 @@ def build_loss(name, embedding_dim, num_class, sample_rate, fp16):
     if "adaface" in name:
         margin_loss = AdaFace()
     else:
+        # NOTE: with 1.0, 0.0, 0.4, it's cosface actually
         margin_loss = CombinedMarginLoss(
             64,
             1.0,
