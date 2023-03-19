@@ -13,9 +13,10 @@ import albumentations as A
 import cv2
 from torch.utils.data import distributed
 from torch.utils.data.sampler import RandomSampler
+from functools import partial
 # from torch.utils.data import DataLoader
 from .dataloader import DataLoaderX
-from metric_trainer.utils.dist import get_world_size
+from metric_trainer.utils.dist import get_world_size, worker_init_fn
 
 
 def get_dataloader(dataset, is_dist, batch_size, workers, rank):
@@ -31,6 +32,7 @@ def get_dataloader(dataset, is_dist, batch_size, workers, rank):
             workers,
         ]
     )  # number of workers
+    init_fn = partial(worker_init_fn, num_workers=nw, rank=rank, seed=2048)
     data_loader = DataLoaderX(
         dataset=dataset,
         batch_size=batch_size,
@@ -38,7 +40,8 @@ def get_dataloader(dataset, is_dist, batch_size, workers, rank):
         num_workers=nw,
         drop_last=True,
         pin_memory=True,
-        local_rank=rank
+        local_rank=rank,
+        worker_init_fn=init_fn,
     )
     return data_loader
 
