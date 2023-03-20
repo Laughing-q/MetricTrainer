@@ -15,13 +15,14 @@ from torch.utils.data import distributed
 from torch.utils.data.sampler import RandomSampler
 from functools import partial
 # from torch.utils.data import DataLoader
-from .dataloader import DataLoaderX
+from metric_trainer.data.dataloader import DataLoaderX
 from metric_trainer.utils.dist import get_world_size, worker_init_fn
 
 
 def get_dataloader(dataset, is_dist, batch_size, workers, rank):
     sampler = (
-        distributed.DistributedSampler(dataset, shuffle=True)
+        # distributed.DistributedSampler(dataset, shuffle=True)
+        distributed.DistributedSampler(dataset, num_replicas=get_world_size(), rank=rank, shuffle=True, seed=2048)
         if is_dist
         else RandomSampler(dataset)
     )
@@ -241,7 +242,11 @@ class ValBinData(Dataset):
 
 if __name__ == "__main__":
     # data = FaceTrainData(img_root='/dataset/dataset/face_test')
-    # data = Glint360Data(root_dir="/d/dataset/face/glint360k")
+    data = Glint360Data(root_dir="/data/datasets/face/glint360k")
+    dataloader = get_dataloader(data, False, batch_size=128, workers=4, rank=0)
+    for i, d in enumerate(dataloader):
+        img, label = d
+        print(i, label.shape)
     # for d in data:
     #     img, label = d
     #     img2 = Image.fromarray(img)
@@ -252,11 +257,11 @@ if __name__ == "__main__":
     #     if cv2.waitKey(0) == ord("q"):
     #         break
 
-    data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
-    for img in data:
-        img2 = Image.fromarray(img)
-        img2.show()
-        print(img.shape)
-        cv2.imshow("p", img)
-        if cv2.waitKey(0) == ord("q"):
-            break
+    # data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
+    # for img in data:
+    #     img2 = Image.fromarray(img)
+    #     img2.show()
+    #     print(img.shape)
+    #     cv2.imshow("p", img)
+    #     if cv2.waitKey(0) == ord("q"):
+    #         break
