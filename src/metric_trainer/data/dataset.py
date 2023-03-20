@@ -11,18 +11,19 @@ from torch.utils.data import Dataset
 from pathlib import Path
 import albumentations as A
 import cv2
-from torch.utils.data import distributed
-from torch.utils.data.sampler import RandomSampler
-from torch.utils.data import DataLoader
-from metric_trainer.utils.dist import get_world_size
+from torch.utils.data.sampler import BatchSampler
+from metric_trainer.utils.dist import get_world_size, worker_init_reset_seed
+from metric_trainer.data.sampler import InfiniteSampler
+from metric_trainer.data.dataloader import DataLoader
 
 
 def get_dataloader(dataset, is_dist, batch_size, workers):
-    sampler = (
-        distributed.DistributedSampler(dataset, shuffle=True)
-        if is_dist
-        else RandomSampler(dataset)
-    )
+    # sampler = (
+    #     distributed.DistributedSampler(dataset, shuffle=True)
+    #     if is_dist
+    #     else RandomSampler(dataset)
+    # )
+    sampler = InfiniteSampler(len(dataset), seed=0)
     nw = min(
         [
             os.cpu_count() // get_world_size(),
@@ -30,12 +31,18 @@ def get_dataloader(dataset, is_dist, batch_size, workers):
             workers,
         ]
     )  # number of workers
+
+    batch_sampler = BatchSampler(
+        sampler=sampler,
+        batch_size=batch_size,
+        drop_last=False,
+    )
     data_loader = DataLoader(
         dataset=dataset,
-        batch_size=batch_size,
-        sampler=sampler,
+        batch_sampler=batch_sampler,
         num_workers=nw,
-        drop_last=True,
+        pin_memory=True,
+        worker_init_fn=worker_init_reset_seed,
     )
     return data_loader
 
@@ -235,8 +242,8 @@ class ValBinData(Dataset):
 
 if __name__ == "__main__":
     # data = FaceTrainData(img_root='/dataset/dataset/face_test')
-    data = Glint360Data(root_dir="/data/datasets/face/glint360k")
-    dataloader = get_dataloader(data, False, batch_size=128, workers=4)
+    data = Glint360Data(root_dir="/d/dataset/face/glint360k")
+    dataloader = get_dataloader(data, False, batch_size=128, workers=1)
     for i, d in enumerate(dataloader):
         img, label = d
         print(i, label.shape)
@@ -250,11 +257,11 @@ if __name__ == "__main__":
     #     if cv2.waitKey(0) == ord("q"):
     #         break
 
-    data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
-    for img in data:
-        img2 = Image.fromarray(img)
-        img2.show()
-        print(img.shape)
-        cv2.imshow("p", img)
-        if cv2.waitKey(0) == ord("q"):
-            break
+    # data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
+    # for img in data:
+    #     img2 = Image.fromarray(img)
+    #     img2.show()
+    #     print(img.shape)
+    #     cv2.imshow("p", img)
+    #     if cv2.waitKey(0) == ord("q"):
+    #         break

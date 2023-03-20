@@ -1,5 +1,8 @@
 import torch.distributed as dist
 import torch
+import uuid
+import random
+import numpy as np
 
 
 def is_dist_avail_and_initialized():
@@ -37,3 +40,10 @@ def get_world_size() -> int:
     if not dist.is_initialized():
         return 1
     return dist.get_world_size()
+
+
+def worker_init_reset_seed(worker_id):
+    seed = uuid.uuid4().int % 2**32
+    random.seed(seed)
+    torch.set_rng_state(torch.manual_seed(seed).get_state())
+    np.random.seed(seed)
