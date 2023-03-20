@@ -235,7 +235,11 @@ class ValBinData(Dataset):
 
 if __name__ == "__main__":
     # data = FaceTrainData(img_root='/dataset/dataset/face_test')
-    # data = Glint360Data(root_dir="/d/dataset/face/glint360k")
+    data = Glint360Data(root_dir="/data/datasets/face/glint360k")
+    dataloader = get_dataloader(data, False, batch_size=128, workers=4)
+    for i, d in enumerate(dataloader):
+        img, label = d
+        print(i, label.shape)
     # for d in data:
     #     img, label = d
     #     img2 = Image.fromarray(img)
