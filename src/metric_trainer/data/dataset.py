@@ -16,6 +16,7 @@ from torch.utils.data.sampler import RandomSampler
 from torch.utils.data import DataLoader
 from metric_trainer.utils.dist import get_world_size
 
+ROOT = "/data/datasets/face/glint360k/images"
 
 def get_dataloader(dataset, is_dist, batch_size, workers):
     sampler = (
@@ -43,7 +44,7 @@ def get_dataloader(dataset, is_dist, batch_size, workers):
 class FaceTrainData(Dataset):
     """Read training data from folders"""
 
-    def __init__(self, img_root, transform, img_size=112, rgb=True) -> None:
+    def __init__(self, img_root, transform=None, img_size=112, rgb=True) -> None:
         self.img_files = glob.glob(osp.join(img_root, "*", "*"), recursive=True)
         self.label_list = os.listdir(img_root)
         self.img_size = img_size
@@ -61,15 +62,17 @@ class FaceTrainData(Dataset):
                 # A.VerticalFlip(p=0.5),
                 A.RandomBrightnessContrast(p=transform.RandomBrightnessContrast),
             ]
-        )
-        self.labels = [
-            self.label_list.index(Path(im).parent.name) for im in self.img_files
-        ]
+        ) if transform is not None else None
+        # self.labels = [
+        #     self.label_list.index(Path(im).parent.name) for im in self.img_files
+        # ]
+        self.labels = self.label_list
 
     def __getitem__(self, index):
         img_file = self.img_files[index]
         img = cv2.imread(img_file)
-        img = self.transform(image=img)["image"]
+        if self.transform is not None:
+            img = self.transform(image=img)["image"]
         img = cv2.resize(img, (self.img_size, self.img_size))
 
         img = img.transpose(2, 0, 1)
@@ -172,6 +175,10 @@ class Glint360Data(Dataset):
             label = label[0]
         # NOTE: the original image from train.rec of glint360k is `RGB` format
         img = mx.image.imdecode(img).asnumpy()
+        # save_dir = osp.join(ROOT, f"{int(label)}")
+        # os.makedirs(save_dir, exist_ok=True)
+        # cv2.imwrite(osp.join(save_dir, f"{index}.jpg"), img[:, :, ::-1])
+
         if self.transform is not None:
             img = self.transform(image=img)["image"]
 
@@ -234,13 +241,14 @@ class ValBinData(Dataset):
 
 
 if __name__ == "__main__":
-    # data = FaceTrainData(img_root='/dataset/dataset/face_test')
-    data = Glint360Data(root_dir="/data/datasets/face/glint360k")
+    from tqdm import tqdm
+    data = FaceTrainData(img_root='/data/datasets/face/glint360k/images')
+    # data = Glint360Data(root_dir="/data/datasets/face/glint360k")
     dataloader = get_dataloader(data, False, batch_size=128, workers=4)
     for i, d in enumerate(dataloader):
         img, label = d
         print(i, label.shape)
-    # for d in data:
+    # for d in tqdm(data, total=len(data)):
     #     img, label = d
     #     img2 = Image.fromarray(img)
     #     img2.show()
@@ -250,11 +258,11 @@ if __name__ == "__main__":
     #     if cv2.waitKey(0) == ord("q"):
     #         break
 
-    data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
-    for img in data:
-        img2 = Image.fromarray(img)
-        img2.show()
-        print(img.shape)
-        cv2.imshow("p", img)
-        if cv2.waitKey(0) == ord("q"):
-            break
+    # data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
+    # for img in data:
+    #     img2 = Image.fromarray(img)
+    #     img2.show()
+    #     print(img.shape)
+    #     cv2.imshow("p", img)
+    #     if cv2.waitKey(0) == ord("q"):
+    #         break
