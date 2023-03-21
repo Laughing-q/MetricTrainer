@@ -12,7 +12,7 @@ from pathlib import Path
 import albumentations as A
 import cv2
 from torch.utils.data import distributed
-from torch.utils.data.sampler import RandomSampler
+from torch.utils.data.sampler import RandomSampler, SequentialSampler
 from torch.utils.data import DataLoader
 from metric_trainer.utils.dist import get_world_size
 
@@ -22,7 +22,7 @@ def get_dataloader(dataset, is_dist, batch_size, workers):
     sampler = (
         distributed.DistributedSampler(dataset, shuffle=True)
         if is_dist
-        else RandomSampler(dataset)
+        else SequentialSampler(dataset)
     )
     nw = min(
         [
@@ -45,8 +45,8 @@ class FaceTrainData(Dataset):
     """Read training data from folders"""
 
     def __init__(self, img_root, transform=None, img_size=112, rgb=True) -> None:
-        self.img_files = glob.glob(osp.join(img_root, "*", "*"), recursive=True)
-        self.label_list = os.listdir(img_root)
+        # self.img_files, self.labels = self._get_imgs_and_labels_from_root(img_root)
+        self.img_files, self.labels = self._get_imgs_and_labels_from_txt(img_root)
         self.img_size = img_size
         self.rgb = rgb
         self.transform = A.Compose(
@@ -63,12 +63,31 @@ class FaceTrainData(Dataset):
                 A.RandomBrightnessContrast(p=transform.RandomBrightnessContrast),
             ]
         ) if transform is not None else None
-        # self.labels = [
-        #     self.label_list.index(Path(im).parent.name) for im in self.img_files
-        # ]
-        self.labels = self.label_list
+        self.random_idx = np.arange(len(self))
+        np.random.shuffle(self.random_idx)
+
+    def _get_imgs_and_labels_from_root(self, img_root):
+        """get images and labels from folers"""
+        img_files = glob.glob(osp.join(img_root, "*", "*"), recursive=True)
+        label_list = os.listdir(img_root)
+        labels = [label_list.index(Path(im).parent.name) for im in img_files]
+        return img_files, labels
+
+    def _get_imgs_and_labels_from_txt(self, img_txt):
+        """get images and labels a pre-written txt file"""
+        with open(img_txt, 'r') as f:
+            lines = f.read().strip().splitlines()
+        img_files, labels = [], []
+        for i, l in enumerate(lines):
+            im, label = l.split(",")
+            # img_files[i] = im.strip()
+            # labels[i] = int(label.strip())
+            img_files.append(im.strip())
+            labels.append(int(label.strip()))
+        return img_files, labels
 
     def __getitem__(self, index):
+        # index = self.random_idx[index]
         img_file = self.img_files[index]
         img = cv2.imread(img_file)
         if self.transform is not None:
@@ -82,8 +101,7 @@ class FaceTrainData(Dataset):
         img = torch.from_numpy(img)
         # img = img / 255.
 
-        label_dir = Path(img_file).parent.name
-        label = self.label_list.index(label_dir)
+        label = self.labels[index]
         return img, label
 
     def __len__(self):
@@ -175,9 +193,6 @@ class Glint360Data(Dataset):
             label = label[0]
         # NOTE: the original image from train.rec of glint360k is `RGB` format
         img = mx.image.imdecode(img).asnumpy()
-        # save_dir = osp.join(ROOT, f"{int(label)}")
-        # os.makedirs(save_dir, exist_ok=True)
-        # cv2.imwrite(osp.join(save_dir, f"{index}.jpg"), img[:, :, ::-1])
 
         if self.transform is not None:
             img = self.transform(image=img)["image"]
@@ -242,15 +257,21 @@ class ValBinData(Dataset):
 
 if __name__ == "__main__":
     from tqdm import tqdm
-    data = FaceTrainData(img_root='/data/datasets/face/glint360k/images')
-    # data = Glint360Data(root_dir="/data/datasets/face/glint360k")
+    # data = FaceTrainData(img_root='./images.txt')
+    data = Glint360Data(root_dir="/data/datasets/face/glint360k")
     dataloader = get_dataloader(data, False, batch_size=128, workers=4)
     for i, d in enumerate(dataloader):
         img, label = d
         print(i, label.shape)
-    # for d in tqdm(data, total=len(data)):
-    #     img, label = d
-    #     img2 = Image.fromarray(img)
+    # tt = 0
+    # for i, d in enumerate(data):
+    #     img, label, t, n = d
+    #     tt += t
+    #     # print(t)
+    #     if i % 128 == 0:
+    #         print(i, tt, n)
+    #         tt = 0
+        # img2 = Image.fromarray(img)
     #     img2.show()
     #     print(img.shape)
     #     print(label)
