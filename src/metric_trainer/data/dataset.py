@@ -22,7 +22,7 @@ def get_dataloader(dataset, is_dist, batch_size, workers):
     sampler = (
         distributed.DistributedSampler(dataset, shuffle=True)
         if is_dist
-        else SequentialSampler(dataset)
+        else RandomSampler(dataset)
     )
     nw = min(
         [
