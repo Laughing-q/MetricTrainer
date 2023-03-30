@@ -41,7 +41,7 @@ class Evalautor:
     """
 
     def __init__(
-        self, val_targets, root_dir, image_size=112, batch_size=8, flip=True
+        self, val_targets, root_dir, image_size=112, batch_size=8, flip=True, from_insightface=False
     ) -> None:
         self.rank: int = get_rank()
         self.highest_acc: float = 0.0
@@ -50,6 +50,7 @@ class Evalautor:
         self.val_issame_list: List[object] = []
         self.var_name_list: List[str] = []
         self.flip = flip
+        self.from_insightface = from_insightface
         if self.rank == 0:
             self.init_dataset(
                 val_targets=val_targets,
@@ -104,6 +105,8 @@ class Evalautor:
         for i, imgs in pbar:
             imgs = imgs.cuda()
             imgs = imgs / 255.0
+            if self.from_insightface:
+                imgs = (imgs - 0.5) - 0.5
             if flip:
                 imgs = torch.cat([imgs, imgs.flip(dims=[-1])], dim=0)  # (2N, C, H, W)
             out = model(imgs)  # (N, 512)

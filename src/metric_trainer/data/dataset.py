@@ -12,7 +12,7 @@ from pathlib import Path
 import albumentations as A
 import cv2
 from torch.utils.data import distributed
-from torch.utils.data.sampler import RandomSampler
+from torch.utils.data.sampler import RandomSampler, SequentialSampler
 from torch.utils.data import DataLoader
 from metric_trainer.utils.dist import get_world_size
 
@@ -235,13 +235,18 @@ class ValBinData(Dataset):
 
 if __name__ == "__main__":
     # data = FaceTrainData(img_root='/dataset/dataset/face_test')
-    data = Glint360Data(root_dir="/data/datasets/face/glint360k")
+    data = Glint360Data(root_dir="/d/dataset/face/glint360k")
     dataloader = get_dataloader(data, False, batch_size=128, workers=4)
     for i, d in enumerate(dataloader):
         img, label = d
         print(i, label.shape)
-    # for d in data:
-    #     img, label = d
+    # tt = 0
+    # for i, d in enumerate(data):
+    #     img, label, t = d
+    #     tt += t
+    #     if i % 128 == 0:
+    #         print(i, tt)
+    #         tt = 0
     #     img2 = Image.fromarray(img)
     #     img2.show()
     #     print(img.shape)
@@ -250,11 +255,11 @@ if __name__ == "__main__":
     #     if cv2.waitKey(0) == ord("q"):
     #         break
 
-    data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
-    for img in data:
-        img2 = Image.fromarray(img)
-        img2.show()
-        print(img.shape)
-        cv2.imshow("p", img)
-        if cv2.waitKey(0) == ord("q"):
-            break
+    # data = ValBinData(bin_file="/d/dataset/face/glint360k/lfw.bin")
+    # for img in data:
+    #     img2 = Image.fromarray(img)
+    #     img2.show()
+    #     print(img.shape)
+    #     cv2.imshow("p", img)
+    #     if cv2.waitKey(0) == ord("q"):
+    #         break

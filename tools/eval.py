@@ -43,13 +43,13 @@ def parse_opt():
 
 if __name__ == "__main__":
     opt = parse_opt()
-    cfg = OmegaConf.load(opt.config)
-
-    model = build_model(cfg.MODEL)
-    ckpt = torch.load(opt.weight)
-    model.load_state_dict(ckpt["model"])
-    model.cuda()
-    model.eval()
+    # cfg = OmegaConf.load(opt.config)
+    #
+    # model = build_model(cfg.MODEL)
+    # ckpt = torch.load(opt.weight)
+    # model.load_state_dict(ckpt["model"])
+    # model.cuda()
+    # model.eval()
 
     # img = torch.rand((1, 3, 112, 112), dtype=torch.float32).cuda()
     # time = Timer(start=True, round=2, unit="ms")
@@ -57,6 +57,10 @@ if __name__ == "__main__":
     #     model(img)
     # print(f"average inference time: {time.since_start() / 100}ms")
     # exit()
+
+    from faceswap.modules import FaceFeature
+    model = FaceFeature(model_file="/home/laughing/codes/FaceSwap/weights/arcface.pt", half=False)
+
     testor = Evalautor(
         val_targets=["lfw", "cfp_fp", "agedb_30", "calfw", "cplfw", "vgg2_fp"],
         root_dir=opt.data,
