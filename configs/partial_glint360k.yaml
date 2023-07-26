@@ -11,8 +11,8 @@ MODEL:
 
 DATASET:
   TYPE: 'glint360k'  # 'folder'
-  TRAIN: '/d/dataset/face/glint360k'
-  VAL: '/d/dataset/face/glint360k'
+  TRAIN: '/sdata/datasets/glint360k'
+  VAL: '/sdata/datasets/glint360k'
   VAL_TARGETS: ['lfw', 'cfp_fp', "agedb_30"]
   TEST: ''
   IMG_SIZE: 112
