@@ -27,7 +27,6 @@ Clone repo and install [requirements.txt](https://github.com/Laughing-q/yolov5-q
 
 ```shell
 pip install pytorch-metric-learning
-pip install git+https://github.com/Laughing-q/lqcv.git
 pip install git+https://github.com/Laughing-q/pytorch-image-models.git
 git clone https://github.com/Laughing-q/MetricTrainer.git
 cd MetricTrainer
